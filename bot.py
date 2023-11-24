@@ -7,8 +7,10 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from hidden.tokenfile import TOKEN_FOUR
 from handlers import stop
 
+bot_unit = Bot(TOKEN_FOUR)
 
-async def main():
+
+async def main(bot):
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -19,8 +21,6 @@ async def main():
         maintenance_mode=False
     )
 
-    bot = Bot(TOKEN_FOUR)
-
     dp.include_routers(
         stop.maintenance_router, stop.regular_router,
     )
@@ -29,4 +29,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main(bot=bot_unit))

@@ -3,6 +3,9 @@ from aiogram.filters import MagicData, CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from bot import bot_unit as bot
+from hidden.tokenfile import OWNER_CHAT_ID
+
 
 # Хэндлеры этого роутера перехватят все сообщения и колбэки,
 # если maintenance_mode равен True
@@ -15,11 +18,17 @@ regular_router = Router()
 
 @maintenance_router.message()
 async def any_message(message: Message):
+    text = f'Пользователь {message.from_user.username} (ID={message.from_user.id}), заинтересовался ботом'
+    print(text)
+    await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
     await message.answer("Бот в режиме обслуживания. Пожалуйста, подождите.")
 
 
 @maintenance_router.callback_query()
 async def any_callback(callback: CallbackQuery):
+    text = f'Пользователь {callback.from_user.username} (ID={callback.from_user.id}), заинтересовался ботом'
+    print(text)
+    await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
     await callback.answer(
         text="Бот в режиме обслуживания. Пожалуйста, подождите",
         show_alert=True
@@ -30,6 +39,9 @@ async def any_callback(callback: CallbackQuery):
 # т.е. когда maintenance_mode равен False или не указан вообще
 @regular_router.message(CommandStart())
 async def cmd_start(message: Message):
+    text = f'Пользователь {message.from_user.username} (ID={message.from_user.id}), заинтересовался ботом'
+    print(text)
+    await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
     builder = InlineKeyboardBuilder()
     builder.button(text="Нажми меня", callback_data="anything")
     await message.answer(
@@ -40,6 +52,9 @@ async def cmd_start(message: Message):
 
 @regular_router.callback_query(F.data == "anything")
 async def callback_anything(callback: CallbackQuery):
+    text = f'Пользователь {callback.from_user.username} (ID={callback.from_user.id}), заинтересовался ботом'
+    print(text)
+    await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
     await callback.answer(
         text="Кнопка, очевидно, пока тоже не работает :(",
         show_alert=True
