@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from hidden.tokenfile import TOKEN_FOUR
-from handlers import stop
+from handlers import stop, salary
 
 bot_unit = Bot(TOKEN_FOUR)
 
@@ -22,6 +22,7 @@ async def main(bot):
     )
 
     dp.include_routers(
+        salary.router,
         stop.maintenance_router, stop.regular_router,
     )
 
