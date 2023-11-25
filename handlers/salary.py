@@ -31,6 +31,9 @@ dependent_cell_five = "Итог З\П+Бонус"
 dependent_cell_six = "Премия(компенсация отпуска)"
 dependent_cell_seven = "Вычеты ОС(форма/прочее)"
 dependent_cell_eight = "Вычеты ОС(Инвентаризация)"
+dependents_list = [dependent_cell_one, dependent_cell_two, dependent_cell_three,
+                   dependent_cell_four, dependent_cell_five, dependent_cell_six,
+                   dependent_cell_seven, dependent_cell_eight]
 
 
 async def search_salary_value(target_sheet, base_cell_name=base_cell):
@@ -45,11 +48,18 @@ async def search_salary_value(target_sheet, base_cell_name=base_cell):
             break
     # Если базовая ячейка (шапка базового столбца) найдена, ищем целевые столбцы:
     if target_sheet:
-        list_of_persons = []
-        await find_it(target_cell, target_sheet, target_column_name=dependent_cell_two)
+        dict_of_persons = {}
+        for target in dependents_list:
+            await find_it(target_cell, target_sheet, target_column_name=target, dict_of_persons=dict_of_persons)
+
+        for person_no in dict_of_persons:
+            text = f'{dict_of_persons[person_no]["Ф.И.О."]} ({dict_of_persons[person_no]["Должность"]}): {dict_of_persons[person_no][dependent_cell_five]} руб.'
+            await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
+            # print(person_no, ':', dict_of_persons[person_no])
+            # print('-' * 50)
 
 
-async def find_it(target_cell, target_sheet, target_column_name):
+async def find_it(target_cell, target_sheet, target_column_name, dict_of_persons):
     # Ищем целевой столбец
     target_column = None
     if target_cell:
@@ -64,10 +74,12 @@ async def find_it(target_cell, target_sheet, target_column_name):
     # Если целевой столбец найден, выводим значения для непустых значений в базовом столбце
     if target_column:
         for cell in target_column:
-            code_value = target_sheet.cell(row=cell.row, column=target_cell.column).value
-            if code_value is not None:
-                zp_value = cell.value
-                print(f"Код сотрудника: {code_value}, ЗП: {zp_value}")
+            base_colum_value = target_sheet.cell(row=cell.row, column=target_cell.column).value
+            if base_colum_value is not None:
+                # Добавляем значения в словарь
+                if base_colum_value not in dict_of_persons:
+                    dict_of_persons[base_colum_value] = {}
+                dict_of_persons[base_colum_value][target_column_name] = cell.value
 
 
 @router.message(F.document.file_name.endswith('.xlsx'))
