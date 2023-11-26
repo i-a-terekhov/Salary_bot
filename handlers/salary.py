@@ -105,6 +105,7 @@ async def handle_excel_file(message: types.Document):
         for row in sheet.iter_rows(min_row=1, max_row=3, min_col=1, max_col=3):
             for cell in row:
                 if cell.value == try_sheet_factor:
+                    # На первом листе, удовлетворяющем условию, останавливаем перебор:
                     target_sheet = sheet
                     break
         if target_sheet:
