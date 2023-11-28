@@ -22,8 +22,8 @@ async def main(bot):
     )
 
     dp.include_routers(
-        salary.router,
-        stop.maintenance_router, stop.regular_router,
+        # salary.router,
+        stop.boring_router, stop.regular_router,
     )
 
     await dp.start_polling(bot)
