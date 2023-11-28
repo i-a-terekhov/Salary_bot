@@ -39,14 +39,23 @@ def insert_data(user_id, state, employee_data, db_name: str = DATABASE_NAME) -> 
     existing_data = cursor.fetchone()
 
     if existing_data:
-        successful_insert = False
-        print(f"Данные для user_id {user_id} уже существуют. Ничего не вставлено.")
+        # Если данные уже существуют, запрашиваем у пользователя обновление
+        update_option = input(f"Данные для user_id {user_id} уже существуют. Хотите обновить их? (y/n): ")
+        if update_option.lower() == 'y':
+            # Обновляем данные
+            update_query = 'UPDATE users SET state = ?, employee_data = ? WHERE user_id = ?'
+            cursor.execute(update_query, (state, employee_data, user_id))
+            print(f"Данные для user_id {user_id} успешно обновлены.")
+            successful_insert = True
+        else:
+            print(f"Ничего не вставлено для user_id {user_id}.")
+            successful_insert = False
     else:
-        successful_insert = True
         # Данных нет, вставляем новую запись
         insert_query = 'INSERT INTO users (user_id, state, employee_data) VALUES (?, ?, ?)'
         cursor.execute(insert_query, (user_id, state, employee_data))
         print(f"Данные для user_id {user_id} успешно вставлены.")
+        successful_insert = True
 
     # Фиксируем изменения и закрываем соединение
     close_connection(connect=connection)
