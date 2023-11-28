@@ -9,7 +9,7 @@ from aiogram.types import Message, ReplyKeyboardRemove
 
 from states import CommonStart
 from keyboards.simple_keyboard import make_inline_row_keyboard
-from database.db_common import insert_data, display_all_data
+from database.db_common import insert_data, display_all_data, drop_columns
 
 router = Router()
 
@@ -22,11 +22,12 @@ async def start_dialogue(message: Message, state: FSMContext):
     if insert_data(message.chat.id, message.from_user.username, 'еще текст'):
         await message.answer(
             text="Я робот-почтальон! Чтобы получать письма от вашего руководителя пройдите регистрацию",
-            reply_markup=make_inline_row_keyboard(['первый', 'второй'])
+            reply_markup=make_inline_row_keyboard(['Регистрация', 'Log in'])
         )
         # Устанавливаем пользователю состояние "старт регистрации"
         await state.set_state(CommonStart.waiting_for_start)
     else:
         await message.answer(text='Рад снова Вас видеть!')
-
+        drop_columns('user_id', 'state')
+    print('ИТОГ:')
     display_all_data()
