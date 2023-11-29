@@ -14,6 +14,9 @@ bot_unit = Bot(TOKEN_FOUR)
 # Создаем базу данных, если она не существует
 db_common.one_time_connection(columns=['user_id', 'state', 'employee_data'])
 db_common.display_all_data()
+print('-' * 20)
+db_common.delete_empty_rows()
+db_common.display_all_data()
 
 
 async def main(bot):

@@ -153,10 +153,8 @@ def drop_columns(*column_names: str, db_name: str = DATABASE_NAME) -> None:
 
         # Формируем список столбцов для выбора в SELECT и для вставки в новую таблицу
         select_columns = ', '.join(existing_columns)
-        insert_columns = ', '.join(existing_columns)
         for column_name in column_names:
             select_columns = select_columns.replace(f"{column_name}, ", "")
-            insert_columns = insert_columns.replace(f"{column_name}, ", "")
 
         cursor.execute(f'PRAGMA foreign_keys=off;')
         # Отключает внешние ключи в базе данных. Внешние ключи связаны с целостностью данных и предотвращают
@@ -167,18 +165,14 @@ def drop_columns(*column_names: str, db_name: str = DATABASE_NAME) -> None:
         # Создает точку сохранения с именем "drop_column". Точка сохранения используется для того, чтобы можно
         # было откатить изменения в случае возникновения ошибки в ходе выполнения последующих операций.
 
-        # TODO сравнить оба варианта:
-        # cursor.execute(f'CREATE TABLE users_backup AS SELECT {select_columns} FROM users;')
-        cursor.execute(f'CREATE TABLE users_backup AS SELECT {", ".join(column_names)} FROM users;')
+        cursor.execute(f'CREATE TABLE users_backup AS SELECT {select_columns} FROM users;')
         # Создает резервную копию таблицы "users" под именем "users_backup". В этой таблице сохраняются все данные
         # из оригинальной таблицы.
 
         cursor.execute(f'DROP TABLE users;')
         # Удаляет оригинальную таблицу "users". Это необратимая операция.
 
-        # TODO сравнить оба варианта:
-        # cursor.execute(f'CREATE TABLE users AS SELECT {insert_columns} FROM users_backup;')
-        cursor.execute(f'CREATE TABLE users AS SELECT {", ".join(column_names)} FROM users_backup;')
+        cursor.execute(f'CREATE TABLE users AS SELECT {select_columns} FROM users_backup;')
         # Восстанавливает таблицу "users" из резервной копии "users_backup". Теперь таблица "users" снова существует,
         # но без удаленного столбца.
 
@@ -205,3 +199,23 @@ def drop_columns(*column_names: str, db_name: str = DATABASE_NAME) -> None:
     finally:
         # Закрываем соединение
         close_connection(connect=connection)
+
+
+# TODO функция нуждается в доработке
+def delete_empty_rows(table_name: str = "users"):
+    connection = open_connection()
+    cursor = connection.cursor()
+
+    # Получаем имена столбцов в таблице
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    column_names = [col[1] for col in cursor.fetchall() if col[1] != 'user_id']
+
+    # Формируем строку с условием для каждого столбца, проверяя на NULL
+    conditions = " AND ".join([f"{column} IS NULL" for column in column_names])
+    print(f'conditions: {conditions}')
+
+    # Удаляем строки, где все значения NULL
+    cursor.execute(f"DELETE FROM {table_name} WHERE {conditions}")
+
+    # Фиксируем изменения и закрываем соединение
+    connection.commit()
