@@ -18,8 +18,14 @@ router = Router()
 async def start_dialogue(message: Message, state: FSMContext):
     await message.answer(reply_markup=ReplyKeyboardRemove(), text='Добрый день!')
 
-    text_random = str(randint(56566, 56569))
-    if insert_data(message.chat.id, message.from_user.username, 'еще текст'):
+    new_record = (
+        str(message.chat.id),
+        message.chat.username,
+        'waiting_for_start',
+        '',
+        '',
+    )
+    if insert_data(new_record):
         await message.answer(
             text="Я робот-почтальон! Чтобы получать письма от вашего руководителя пройдите регистрацию",
             reply_markup=make_inline_row_keyboard(['Регистрация', 'Log in'])
@@ -28,6 +34,5 @@ async def start_dialogue(message: Message, state: FSMContext):
         await state.set_state(CommonStart.waiting_for_start)
     else:
         await message.answer(text='Рад снова Вас видеть!')
-        drop_columns('user_id', 'state')
     print('ИТОГ:')
     display_all_data()

@@ -11,11 +11,9 @@ from handlers import welcome_handler, stop, salary
 
 bot_unit = Bot(TOKEN_FOUR)
 
-# Создаем базу данных, если она не существует
-db_common.one_time_connection(columns=['user_id', 'state', 'employee_data'])
-db_common.display_all_data()
-print('-' * 20)
-db_common.delete_empty_rows()
+if not db_common.test_connection():
+    input('Продолжать?')
+
 db_common.display_all_data()
 
 
