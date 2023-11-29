@@ -82,7 +82,7 @@ async def catch_any_types(message: Message):
         reply_markup=builder.as_markup())
 
 
-@regular_router.callback_query(F.data.in_(["anything", "Регистрация", "Log in"]))
+@regular_router.callback_query(F.data.in_(["anything", "Регистрация", "Log in", "Кнопка не работает"]))
 async def callback_anything(callback: CallbackQuery):
     text = f'Пользователь {callback.from_user.username} (ID={callback.from_user.id}), нажал на кнопку'
     print(text)

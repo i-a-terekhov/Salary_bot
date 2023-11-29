@@ -22,13 +22,13 @@ async def start_dialogue(message: Message, state: FSMContext):
         str(message.chat.id),
         message.chat.username,
         'waiting_for_start',
-        '',
-        '',
+        'employee_code',
+        'secret_employee_code',
     )
     if insert_data(new_record):
         await message.answer(
             text="Я робот-почтальон! Чтобы получать письма от вашего руководителя пройдите регистрацию",
-            reply_markup=make_inline_row_keyboard(['Регистрация', 'Log in'])
+            reply_markup=make_inline_row_keyboard(['Кнопка не работает'])
         )
         # Устанавливаем пользователю состояние "старт регистрации"
         await state.set_state(CommonStart.waiting_for_start)
