@@ -12,3 +12,8 @@ for number_to_encrypt in list_number_to_encrypt:
     print(f"Encrypted Text: {encrypted_text}")
     # print(f"Decrypted Number: {decrypted_number}")
     print('-' * 30)
+
+
+print(f"Пример расшифровки: {decrypt_text('0000-0000-0000-00')}")
+print(f"Пример расшифровки: {decrypt_text('1111-1111-1111-11')}")
+print(f"Пример расшифровки: {decrypt_text('2222-2222-2222-22')}")

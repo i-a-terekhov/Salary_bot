@@ -1,5 +1,6 @@
 import sqlite3
 from random import randint
+from typing import Dict, Any
 
 from aiogram import Router, F, Bot
 from aiogram.filters import Command, StateFilter
@@ -12,6 +13,7 @@ from keyboards.simple_keyboard import make_inline_row_keyboard
 from database.db_common import insert_data, display_all_data
 
 from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FOUR
+from encrypt.math_operations import check_employee_code, check_secret_employee_code
 
 bot = Bot(TOKEN_FOUR)
 
@@ -50,7 +52,7 @@ async def start_dialogue(message: Message):
     display_all_data()
 
 
-@router.callback_query(F.data.in_(["Пройти регистрацию"]))
+@router.callback_query(F.data.in_(["Пройти регистрацию"]), StateFilter(None))
 async def start_registration(callback: CallbackQuery, state: FSMContext):
     text = f'Пользователь {callback.from_user.username} (ID={callback.from_user.id}), нажал на кнопку'
     print(text)
@@ -59,13 +61,32 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
     # Устанавливаем пользователю состояние "старт регистрации"
     await state.set_state(Registration.waiting_for_employee_code)
 
-    await callback.message.answer(text="Введите 'Код сотрудника' (4 или 5 цифр)")
+    await callback.message.answer(text="Введите 'Код сотрудника' (4-6 цифр)")
 
 
 @router.message(Registration.waiting_for_employee_code)
 async def handler_for_employee_code(message: Message, state: FSMContext):
-    pass
-    #TODO функция формальной проверки кода сотрудника
+    secret_employee_code = check_employee_code(message.text)
+    if secret_employee_code:
+        await message.answer(text="Отлично!\n"
+                                  "Теперь введите 'Секретный код сотрудника."
+                                  "Как правило, он сотстоит из цифр, разделенных тире.\n"
+                                  "Например: 1111-1111-1111-11")
+        await state.set_state(Registration.waiting_for_secret_employee_code)
+        await state.update_data(user_employee_code=message.text)
+        await state.update_data(user_secret_employee_code=secret_employee_code)
+    else:
+        await message.answer(text="Не могу разобрать Ваш 'Код сотрудника'.\n"
+                                  "Напоминаю, что он состоит из 4-6 цифр.\n"
+                                  "Попробуйте еще раз")
+
+
+@router.message(Registration.waiting_for_secret_employee_code)
+async def handler_for_secret_employee_code(message: Message, state: FSMContext):
+    user_employee_code = await state.get_data()
+    print(user_employee_code['user_secret_employee_code'])
+    # employee_code = check_secret_employee_code()
+
 
 
 
