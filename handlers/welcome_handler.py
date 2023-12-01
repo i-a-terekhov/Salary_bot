@@ -20,7 +20,7 @@ bot = Bot(TOKEN_FOUR)
 router = Router()
 
 
-@router.message(Command("start"))
+@router.message(Command("start"), StateFilter(None))
 async def start_dialogue(message: Message):
     await message.answer(reply_markup=ReplyKeyboardRemove(), text='Добрый день!')
 
@@ -61,7 +61,10 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
     # Устанавливаем пользователю состояние "старт регистрации"
     await state.set_state(Registration.waiting_for_employee_code)
 
-    await callback.message.answer(text="Введите 'Код сотрудника' (4-6 цифр)")
+    await callback.message.answer(
+        text="Введите 'Код сотрудника' (4-6 цифр)",
+        reply_markup=make_inline_row_keyboard(['Вернуться в самое начало'])  #TODO добавить обработку
+    )
 
 
 @router.message(Registration.waiting_for_employee_code)
@@ -70,8 +73,9 @@ async def handler_for_employee_code(message: Message, state: FSMContext):
     if secret_employee_code:
         await message.answer(text="Отлично!\n"
                                   "Теперь введите 'Секретный код сотрудника."
-                                  "Как правило, он сотстоит из цифр, разделенных тире.\n"
-                                  "Например: 1111-1111-1111-11")
+                                  "Как правило, он состоит из цифр, разделенных тире.\n"
+                                  "Например: 1111-1111-1111-11",
+                             reply_markup=make_inline_row_keyboard(['Вернуться в самое начало']))  #TODO добавить обработку)
         await state.set_state(Registration.waiting_for_secret_employee_code)
         await state.update_data(user_employee_code=message.text)
         await state.update_data(user_secret_employee_code=secret_employee_code)
@@ -83,9 +87,38 @@ async def handler_for_employee_code(message: Message, state: FSMContext):
 
 @router.message(Registration.waiting_for_secret_employee_code)
 async def handler_for_secret_employee_code(message: Message, state: FSMContext):
-    user_employee_code = await state.get_data()
-    print(user_employee_code['user_secret_employee_code'])
-    # employee_code = check_secret_employee_code()
+    data = await state.get_data()
+    user_secret_employee_code = data['user_secret_employee_code']
+    if message.text == user_secret_employee_code:
+        await message.answer(text="Отлично!\n"
+                                  "'Секретный код сотрудника' принят.")
+        await state.set_state(Registration.employee_is_registered)
+    else:
+        await message.answer(text="Не могу разобрать Ваш 'Секретный код сотрудника'.\n"
+                                  "Напоминаю, что он состоит из цифр, разделенных тире.\n"
+                                  "Например: 1111-1111-1111-11")
+
+
+@router.message(Registration.employee_is_registered)  # TODO можно удалить
+async def proverka(message: Message):
+    await message.answer(text="Регистрация прошла успешно")
+
+
+@router.callback_query(F.data.in_(["Вернуться в самое начало"]))
+async def cancel_registration(callback: CallbackQuery, state: FSMContext):
+    text = f'Пользователь {callback.from_user.username} (ID={callback.from_user.id}), нажал на кнопку'
+    print(text)
+    await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
+
+    # Устанавливаем пользователю состояние "старт регистрации"
+    await state.set_state(Registration.waiting_for_employee_code)
+
+    await callback.message.answer(
+        text="Введите 'Код сотрудника' (4-6 цифр)",
+    )
+
+
+
 
 
 

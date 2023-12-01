@@ -6,6 +6,7 @@ class Registration(StatesGroup):
     # - введено что-либо в чат и user_id отсутствует в БД
     waiting_for_employee_code = State()
     waiting_for_secret_employee_code = State()
+    employee_is_registered = State()
     # Выводим первичное приветственное сообщение.
     # Ожидаем любой ввод (зарплатный файл или "секретный код сотрудника" или случайное сообщение)
     # > если файл корректный, заносим данного юзера в БД как босса -> waiting_for_access_summ
