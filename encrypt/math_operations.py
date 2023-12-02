@@ -17,6 +17,3 @@ def check_employee_code(user_input: str) -> str | bool:
     else:
         print('Код сотрудника состоит из 4-6 цифр')
         return False
-
-def check_secret_employee_code(user_input: str, user_employee_code: str) -> str | bool:
-    pass

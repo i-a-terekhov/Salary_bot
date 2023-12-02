@@ -77,9 +77,12 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
     if existing_data:
         # TODO в продакте не будет подтверждения перезаписи, т.е. нужна точка выхода, если запись уже есть:
         # Если данные уже существуют, запрашиваем у пользователя обновление
-        update_option = input(
-            f"Данные для {telegram_username} {telegram_id} уже существуют. Хотите обновить их? (y/n): ")
-        if update_option.lower() == 'y':
+        # --------------------------------------------------------------------------------------------------------------
+        # update_option = input(
+        #     f"Данные для {telegram_username} {telegram_id} уже существуют. Хотите обновить их? (y/n): ")
+        # if update_option.lower() == 'y':
+        # --------------------------------------------------------------------------------------------------------------
+        if 1 == 1:
             # Обновляем данные
             update_query = 'UPDATE users SET telegram_username = ?, state_in_bot = ?, employee_code = ?, ' \
                            'secret_employee_code = ? WHERE telegram_id = ? '
@@ -87,9 +90,11 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
                            (telegram_id, telegram_username, state_in_bot, employee_code, secret_employee_code,))
             print(f"Данные для {telegram_username} {telegram_id} успешно обновлены.")
             successful_insert = True
-        else:
-            print(f"Ничего не вставлено для {telegram_username} {telegram_id}.")
-            successful_insert = False
+        # --------------------------------------------------------------------------------------------------------------
+        # else:
+        #     print(f"Ничего не вставлено для {telegram_username} {telegram_id}.")
+        #     successful_insert = False
+        # --------------------------------------------------------------------------------------------------------------
     else:
         # Данных нет, вставляем новую запись
         insert_query = 'INSERT INTO users (telegram_id, telegram_username, state_in_bot, employee_code, ' \
@@ -115,7 +120,6 @@ def insert_data_in_column(telegram_id: str, column: str, value: str) -> None:
     close_connection(connect=connect)
 
 
-
 def display_all_data() -> None:
     connect = open_connection()
     cursor = connect.cursor()
@@ -137,5 +141,10 @@ def display_all_data() -> None:
             print(row)
     connect.close()
 
+
+def get_data_from_column(telegram_id: str, column: str) -> str:
+    pass
+    connect = open_connection()
+    cursor = connect.cursor()
 
 

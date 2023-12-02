@@ -13,13 +13,14 @@ from keyboards.simple_keyboard import make_inline_row_keyboard
 from database.db_common import insert_data, display_all_data, insert_data_in_column
 
 from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FOUR
-from encrypt.math_operations import check_employee_code, check_secret_employee_code
+from encrypt.math_operations import check_employee_code
 
 bot = Bot(TOKEN_FOUR)
 
 router = Router()
 
 #TODO необходима функция для переноса состояний из БД в оперативку бота (чтобы при перезагрузке бота не было проблем)
+
 
 @router.message(Command("start"), StateFilter(None))
 async def start_dialogue(message: Message):
