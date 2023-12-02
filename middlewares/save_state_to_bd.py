@@ -9,17 +9,19 @@ from aiogram.types import Message
 # TODO перепроверить этот продукт генерации
 class DbConnectionMiddleware(BaseMiddleware):
     async def __call__(self, message: Message, *args, **kwargs):
+        print('Работает мидлварь DbConnectionMiddleware')
         setattr(message, "conn", sqlite3.connect(DATABASE_REG_NAME))
         setattr(message, "cursor", message.conn.cursor())
-        await super().__call__(message, *args, **kwargs)
+        await super().__call__(*args, **kwargs)
 
 
 # Использование middleware для сохранения состояний в базе данных:
 class DbSessionMiddleware(BaseMiddleware):
-    async def __call__(self, message: Message):
+    async def __call__(self, message: Message, *args, **kwargs):
+        print('Работает мидлварь DbSessionMiddleware')
         message["conn"] = sqlite3.connect(DATABASE_REG_NAME)
         message["cursor"] = message["conn"].cursor()
-        await super().__call__(message)
+        await super().__call__(*args, **kwargs)
 
 
 

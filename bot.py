@@ -30,8 +30,8 @@ async def main(bot):
         maintenance_mode=False
     )
 
-    dp.message.middleware(DbConnectionMiddleware())
-    dp.message.middleware(DbSessionMiddleware())
+    # dp.message.middleware(DbConnectionMiddleware())
+    # dp.message.middleware(DbSessionMiddleware())
 
     dp.include_routers(
         welcome_handler.router,
