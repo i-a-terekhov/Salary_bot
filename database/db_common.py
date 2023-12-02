@@ -75,6 +75,7 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
     existing_data = cursor.fetchone()
 
     if existing_data:
+        # TODO в продакте не будет подтверждения перезаписи, т.е. нужна точка выхода, если запись уже есть:
         # Если данные уже существуют, запрашиваем у пользователя обновление
         update_option = input(
             f"Данные для {telegram_username} {telegram_id} уже существуют. Хотите обновить их? (y/n): ")
@@ -101,6 +102,18 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
     # Фиксируем изменения и закрываем соединение
     close_connection(connect=connect)
     return successful_insert
+
+
+def insert_data_in_column(telegram_id: str, column: str, value: str) -> None:
+    connect = open_connection()
+    cursor = connect.cursor()
+
+    update_query = f'UPDATE users SET {column} = ? WHERE telegram_id = ?'
+    cursor.execute(update_query, (value, telegram_id))
+    print(f"Данные для {telegram_id} обновлено в столбце {column}")
+
+    close_connection(connect=connect)
+
 
 
 def display_all_data() -> None:
