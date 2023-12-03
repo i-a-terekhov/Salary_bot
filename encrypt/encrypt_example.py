@@ -2,20 +2,20 @@ from encrypt.crypto_engine import encrypt_text_number, decrypt_text
 from encrypt.crypto_engine import primal_dict
 
 # # Пример использования
-# list_number_to_encrypt = [1111, 54321, 78777, 98774, 21424, 45554, 91111, 45555, 45556, 45557, 33333, 34566, 23433,
-#                           55555]
+list_number_to_encrypt = [1111, 54321, 78777, 98774, 21424, 45554, 91111, 45555, 45556, 45557, 33333, 34566, 23433,
+                          55555]
 # list_number_to_encrypt = ['95005', '95006', '95069', '95079', '95106', '95116', '95170', '95179', '95267', '95277', '95278', '95285', '95286', '95296', '95378', '95396', '95807', '95889', '95907', '95908', '95918', '95989', '95990', '95999', '96116', '96170', '96378', '96396', '96918', '96990', '99001', '99029', '99227', '99281', '99407', '99489']
 #
 CRYPT_KEY_NUM = 4
 #
-# for number_to_encrypt in list_number_to_encrypt:
-#     encrypted_text = encrypt_text_number(str(number_to_encrypt), crypt_key=CRYPT_KEY_NUM)
-#     decrypted_number = decrypt_text(encrypted_text, crypt_key=CRYPT_KEY_NUM)
+for number_to_encrypt in list_number_to_encrypt:
+    encrypted_text = encrypt_text_number(str(number_to_encrypt), crypt_key=CRYPT_KEY_NUM)
+    decrypted_number = decrypt_text(encrypted_text, crypt_key=CRYPT_KEY_NUM)
 #
-#     print(f"Original Number: {number_to_encrypt}")
-#     print(f"Encrypted Text: {encrypted_text}")
-#     print(f"Decrypted Number: {decrypted_number}")
-#     print('-' * 30)
+    print(f"Original Number: {number_to_encrypt}")
+    print(f"Encrypted Text: {encrypted_text}")
+    # print(f"Decrypted Number: {decrypted_number}")
+    print('-' * 30)
 
 
 # print(f"Пример расшифровки: {decrypt_text('0000-0000-0000-00')}")

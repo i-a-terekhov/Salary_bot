@@ -6,7 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from hidden.tokenfile import TOKEN_FOUR
 from database import db_common
-from middlewares.save_state_to_bd import DbConnectionMiddleware, DbSessionMiddleware
+from middlewares.save_state_to_bd import SetStateFromDBMiddleware, SaveStateToDBMiddleware
 from handlers import welcome_handler, stop, salary
 
 
@@ -30,8 +30,8 @@ async def main(bot):
         maintenance_mode=False
     )
 
-    # dp.message.middleware(DbConnectionMiddleware())
-    # dp.message.middleware(DbSessionMiddleware())
+    dp.message.middleware(SetStateFromDBMiddleware())
+    dp.message.middleware(SaveStateToDBMiddleware())
 
     dp.include_routers(
         welcome_handler.router,

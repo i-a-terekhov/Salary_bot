@@ -80,7 +80,9 @@ async def handler_for_employee_code(message: Message, state: FSMContext):
                                   "Как правило, он состоит из цифр, разделенных тире.\n"
                                   "Например: 1111-1111-1111-11",
                              reply_markup=make_inline_row_keyboard(['Вернуться в самое начало']))  #TODO добавить обработку)
-        await state.set_state(Registration.waiting_for_secret_employee_code)
+        name_next_state = 'waiting_for_secret_employee_code'
+        next_state = f'Registration.{name_next_state}'
+        await state.set_state(next_state)
         insert_data_in_column(
             telegram_id=str(message.from_user.id), column='state_in_bot', value='waiting_for_secret_employee_code'
         )

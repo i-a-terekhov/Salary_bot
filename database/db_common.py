@@ -148,3 +148,13 @@ def get_data_from_column(telegram_id: str, column: str) -> str:
     cursor = connect.cursor()
 
 
+def get_user_state_from_db(user_id: str) -> None:
+    # Реализуйте получение состояния пользователя из БД
+    # Верните состояние или None, если его нет
+    pass
+
+def save_user_state_to_db(user_id, state) -> None:
+    # Реализуйте сохранение состояния пользователя в БД
+    pass
+
+

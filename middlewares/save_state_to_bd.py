@@ -1,27 +1,39 @@
-import sqlite3
+from aiogram.fsm.context import FSMContext
 from aiogram import BaseMiddleware
+
 from database.db_common import DATABASE_REG_NAME
 from aiogram.types import Message
+
+#TODO начни с этих функий
+from database.db_common import get_user_state_from_db, save_user_state_to_db
 
 
 # Использование middleware для подключения к базе данных:
 
+
 # TODO перепроверить этот продукт генерации
-class DbConnectionMiddleware(BaseMiddleware):
-    async def __call__(self, message: Message, *args, **kwargs):
-        print('Работает мидлварь DbConnectionMiddleware')
-        setattr(message, "conn", sqlite3.connect(DATABASE_REG_NAME))
-        setattr(message, "cursor", message.conn.cursor())
-        await super().__call__(*args, **kwargs)
+class SetStateFromDB(BaseMiddleware):
+    async def set_user_state(self, message: Message, state: FSMContext):
+        # Получаем состояние пользователя из БД
+        user_id = message.from_user.id
+        user_state = get_user_state_from_db(str(user_id))
+
+        # Устанавливаем состояние в контексте
+        if user_state:
+            current_state = state.get_state()
+            print(f'Меняем состояние с {current_state} на {user_state}')
+            await state.set_state(user_state)
 
 
 # Использование middleware для сохранения состояний в базе данных:
-class DbSessionMiddleware(BaseMiddleware):
-    async def __call__(self, message: Message, *args, **kwargs):
-        print('Работает мидлварь DbSessionMiddleware')
-        message["conn"] = sqlite3.connect(DATABASE_REG_NAME)
-        message["cursor"] = message["conn"].cursor()
-        await super().__call__(*args, **kwargs)
+class SaveStateToDB(BaseMiddleware):
+    async def save_user_state(self, message: Message, state: FSMContext):
+        # Сохраняем текущее состояние пользователя в БД
+        user_id = message.from_user.id
+        current_state = await state.get_state()
+        save_user_state_to_db(user_id, current_state)
+
+
 
 
 
