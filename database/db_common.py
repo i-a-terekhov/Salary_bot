@@ -109,7 +109,7 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
     return successful_insert
 
 
-def insert_data_in_column(telegram_id: str, column: str, value: str) -> None:
+def update_data_in_column(telegram_id: str, column: str, value: str) -> None:
     connect = open_connection()
     cursor = connect.cursor()
 
@@ -147,14 +147,26 @@ def get_data_from_column(telegram_id: str, column: str) -> str:
     connect = open_connection()
     cursor = connect.cursor()
 
+    # Формируем SQL-запрос для выбора данных из указанного столбца
+    select_query = f"SELECT {column} FROM users WHERE telegram_id = ?"
+    cursor.execute(select_query, (telegram_id,))
 
-def get_user_state_from_db(user_id: str) -> None:
-    # Реализуйте получение состояния пользователя из БД
-    # Верните состояние или None, если его нет
-    pass
+    # Извлекаем результат запроса
+    result = cursor.fetchone()
+    connect.close()
 
-def save_user_state_to_db(user_id, state) -> None:
-    # Реализуйте сохранение состояния пользователя в БД
-    pass
+    # Если результат есть, возвращаем значение столбца, иначе возвращаем пустую строку
+    return result[0] if result else ""
+
+
+def get_user_state_from_db(telegram_id: str) -> str:
+    target_column = 'state_in_bot'
+    value = get_data_from_column(telegram_id=telegram_id, column=target_column)
+    return value
+
+
+def save_user_state_to_db(telegram_id: str, new_state: str) -> None:
+    target_column = 'state_in_bot'
+    update_data_in_column(telegram_id=telegram_id, column=target_column, value=new_state)
 
 

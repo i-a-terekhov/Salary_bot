@@ -10,7 +10,7 @@ from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
-from database.db_common import insert_data, display_all_data, insert_data_in_column
+from database.db_common import insert_data, display_all_data, update_data_in_column
 
 from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FOUR
 from encrypt.math_operations import check_employee_code
@@ -62,7 +62,7 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
 
     # Устанавливаем пользователю состояние "старт регистрации"
     await state.set_state(Registration.waiting_for_employee_code)
-    insert_data_in_column(
+    update_data_in_column(
         telegram_id=str(callback.from_user.id), column='state_in_bot', value='waiting_for_employee_code'
     )
     await callback.message.answer(
@@ -83,7 +83,7 @@ async def handler_for_employee_code(message: Message, state: FSMContext):
         name_next_state = 'waiting_for_secret_employee_code'
         next_state = f'Registration.{name_next_state}'
         await state.set_state(next_state)
-        insert_data_in_column(
+        update_data_in_column(
             telegram_id=str(message.from_user.id), column='state_in_bot', value='waiting_for_secret_employee_code'
         )
         await state.update_data(user_employee_code=message.text)
@@ -102,7 +102,7 @@ async def handler_for_secret_employee_code(message: Message, state: FSMContext):
         await message.answer(text="Отлично!\n"
                                   "'Секретный код сотрудника' принят.")
         await state.set_state(Registration.employee_is_registered)
-        insert_data_in_column(
+        update_data_in_column(
             telegram_id=str(message.from_user.id), column='state_in_bot', value='employee_is_registered'
         )
     else:
@@ -124,7 +124,7 @@ async def cancel_registration(callback: CallbackQuery, state: FSMContext):
 
     # Устанавливаем пользователю состояние "старт регистрации"
     await state.set_state(Registration.waiting_for_employee_code)
-    insert_data_in_column(
+    update_data_in_column(
         telegram_id=str(callback.from_user.id), column='state_in_bot', value='waiting_for_employee_code'
     )
     await callback.message.answer(
