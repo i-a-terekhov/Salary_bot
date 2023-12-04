@@ -143,7 +143,6 @@ def display_all_data() -> None:
 
 
 def get_data_from_column(telegram_id: str, column: str) -> str:
-    pass
     connect = open_connection()
     cursor = connect.cursor()
 
@@ -159,10 +158,13 @@ def get_data_from_column(telegram_id: str, column: str) -> str:
     return result[0] if result else ""
 
 
-def get_user_state_from_db(telegram_id: str) -> str:
+def get_user_state_from_db(telegram_id: str) -> str | bool:
     target_column = 'state_in_bot'
     value = get_data_from_column(telegram_id=telegram_id, column=target_column)
-    return value
+    if value != "":
+        return value
+    else:
+        return False
 
 
 def save_user_state_to_db(telegram_id: str, new_state: str) -> None:

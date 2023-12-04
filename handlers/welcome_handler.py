@@ -10,7 +10,7 @@ from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
-from database.db_common import insert_data, display_all_data, update_data_in_column
+from database.db_common import insert_data, display_all_data, update_data_in_column, get_user_state_from_db, get_data_from_column
 
 from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FOUR
 from encrypt.math_operations import check_employee_code
@@ -19,10 +19,28 @@ bot = Bot(TOKEN_FOUR)
 
 router = Router()
 
-#TODO необходима функция для переноса состояний из БД в оперативку бота (чтобы при перезагрузке бота не было проблем)
-
 #TODO пишем хендлер для состояния None с обращением в БД для актуализации статуса. В этом же хендлере запускаем функцию,
 # которая будет соответствовать найденному в БД stat'у
+
+
+@router.message(StateFilter(None))
+async def check_state(message: Message, state: FSMContext):
+    name_of_current_state = get_user_state_from_db(str(message.chat.id))
+    print(f'Текущий статус: {name_of_current_state}')
+    if not name_of_current_state:
+        await start_dialogue(message=message)
+    else:
+        current_state = f'Registration.{name_of_current_state}'
+        await state.set_state(current_state)
+
+        if name_of_current_state == 'waiting_for_employee_code':
+            await handler_for_employee_code(message=message, state=state)
+
+        elif name_of_current_state == 'waiting_for_secret_employee_code':
+            await handler_for_secret_employee_code(message=message, state=state)
+
+        elif name_of_current_state == 'employee_is_registered':
+            await proverka(message=message)
 
 
 @router.message(Command("start"), StateFilter(None))
@@ -57,16 +75,15 @@ async def start_dialogue(message: Message):
     display_all_data()
 
 
+# Фильтр "StateFilter(None)" для того, чтобы после однократного нажатия, кнопка перестала реагировать:
 @router.callback_query(F.data.in_(["Пройти регистрацию"]), StateFilter(None))
 async def start_registration(callback: CallbackQuery, state: FSMContext):
-    text = f'Пользователь {callback.from_user.username} (ID={callback.from_user.id}), нажал на кнопку'
-    print(text)
-    await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
-
-    # Устанавливаем пользователю состояние "старт регистрации"
+    # Устанавливаем пользователю состояние "Ожидание кода сотрудника"
     await state.set_state(Registration.waiting_for_employee_code)
     update_data_in_column(
-        telegram_id=str(callback.from_user.id), column='state_in_bot', value='waiting_for_employee_code'
+        telegram_id=str(callback.from_user.id),
+        column='state_in_bot',
+        value='waiting_for_employee_code'
     )
     await callback.message.answer(
         text="Введите 'Код сотрудника' (4-6 цифр)",
@@ -83,14 +100,24 @@ async def handler_for_employee_code(message: Message, state: FSMContext):
                                   "Как правило, он состоит из цифр, разделенных тире.\n"
                                   "Например: 1111-1111-1111-11",
                              reply_markup=make_inline_row_keyboard(['Вернуться в самое начало']))  #TODO добавить обработку)
-        name_next_state = 'waiting_for_secret_employee_code'
-        next_state = f'Registration.{name_next_state}'
-        await state.set_state(next_state)
+        await state.set_state(Registration.waiting_for_secret_employee_code)
         update_data_in_column(
-            telegram_id=str(message.from_user.id), column='state_in_bot', value='waiting_for_secret_employee_code'
+            telegram_id=str(message.from_user.id),
+            column='state_in_bot',
+            value='waiting_for_secret_employee_code'
         )
-        await state.update_data(user_employee_code=message.text)
-        await state.update_data(user_secret_employee_code=secret_employee_code)
+        update_data_in_column(
+            telegram_id=str(message.from_user.id),
+            column='employee_code',
+            value=message.text
+        )
+        # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника"
+        # это защита от подбора значения на следующем шаге, где "Секретный код сотрудника" будет вводить юзер
+        update_data_in_column(
+            telegram_id=str(message.from_user.id),
+            column='secret_employee_code',
+            value=secret_employee_code
+        )
     else:
         await message.answer(text="Не могу разобрать Ваш 'Код сотрудника'.\n"
                                   "Напоминаю, что он состоит из 4-6 цифр.\n"
@@ -99,14 +126,15 @@ async def handler_for_employee_code(message: Message, state: FSMContext):
 
 @router.message(Registration.waiting_for_secret_employee_code)
 async def handler_for_secret_employee_code(message: Message, state: FSMContext):
-    data = await state.get_data()
-    user_secret_employee_code = data['user_secret_employee_code']
+    user_secret_employee_code = get_data_from_column(telegram_id=str(message.chat.id), column='secret_employee_code')
     if message.text == user_secret_employee_code:
         await message.answer(text="Отлично!\n"
                                   "'Секретный код сотрудника' принят.")
         await state.set_state(Registration.employee_is_registered)
         update_data_in_column(
-            telegram_id=str(message.from_user.id), column='state_in_bot', value='employee_is_registered'
+            telegram_id=str(message.from_user.id),
+            column='state_in_bot',
+            value='employee_is_registered'
         )
     else:
         await message.answer(text="Не могу разобрать Ваш 'Секретный код сотрудника'.\n"
@@ -114,9 +142,10 @@ async def handler_for_secret_employee_code(message: Message, state: FSMContext):
                                   "Например: 1111-1111-1111-11")
 
 
-@router.message(Registration.employee_is_registered)  # TODO можно удалить
-async def proverka(message: Message):
-    await message.answer(text="Регистрация прошла успешно")
+@router.message(Registration.employee_is_registered)
+async def proverka(message: Message, state: FSMContext):
+    await state.set_state(Registration.employee_is_registered)
+    await message.answer(text="Регистрация прошла успешно. Ожидайте сообщения...")
 
 
 @router.callback_query(F.data.in_(["Вернуться в самое начало"]))
@@ -128,7 +157,9 @@ async def cancel_registration(callback: CallbackQuery, state: FSMContext):
     # Устанавливаем пользователю состояние "старт регистрации"
     await state.set_state(Registration.waiting_for_employee_code)
     update_data_in_column(
-        telegram_id=str(callback.from_user.id), column='state_in_bot', value='waiting_for_employee_code'
+        telegram_id=str(callback.from_user.id),
+        column='state_in_bot',
+        value='waiting_for_employee_code'
     )
     await callback.message.answer(
         text="Введите 'Код сотрудника' (4-6 цифр)",
