@@ -57,8 +57,8 @@ async def search_salary_value(target_sheet, base_cell_name=base_cell):
         for person_no in dict_of_persons:
             text = f'{dict_of_persons[person_no]["Ф.И.О."]} ({dict_of_persons[person_no]["Должность"]}): {dict_of_persons[person_no][dependent_cell_five]} руб.'
             await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
-            # print(person_no, ':', dict_of_persons[person_no])
-            # print('-' * 50)
+            print(person_no, ':', dict_of_persons[person_no])
+            print('-' * 50)
 
 
 async def find_it(target_cell, target_sheet, target_column_name, dict_of_persons):
@@ -93,7 +93,7 @@ async def find_it(target_cell, target_sheet, target_column_name, dict_of_persons
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document):
     # Оповещение
-    text = f'Пользователь {message.from_user.username} (ID={message.from_user.id}) прислал зарплатную ведомость:'
+    text = f'Юзер {message.from_user.id} прислал зарплатную ведомость'
     print(text)
     await bot.send_document(chat_id=OWNER_CHAT_ID, document=message.document.file_id, caption=message.caption)
 

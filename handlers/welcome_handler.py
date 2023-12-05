@@ -39,7 +39,7 @@ async def restoring_state_from_database(message: Message, state: FSMContext):
             await waiting_for_secret_employee_code(message=message, state=state)
 
         elif name_of_current_state == 'employee_is_registered':
-            await employee_is_registered(message=message)
+            await employee_is_registered(message=message, state=state)
 
         elif name_of_current_state == 'employee_is_banned':
             await employee_is_banned(message=message)
@@ -193,7 +193,7 @@ async def employee_is_banned(message: Message):
                               "Возможно, его заявку на обнуление бана одобрят")
 
 
-@router.message(Registration.employee_is_registered)
+@router.message(Registration.employee_is_registered, F.content_type.in_({'text', 'sticker', 'photo'}))
 async def employee_is_registered(message: Message, state: FSMContext):
     print(f'Юзер {message.from_user.id}: employee_is_registered')
 

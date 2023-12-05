@@ -31,7 +31,7 @@ async def main(bot):
 
     dp.include_routers(
         welcome_handler.router,
-        # salary.router,
+        salary.router,
         # stop.boring_router, stop.regular_router,
     )
 
