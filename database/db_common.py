@@ -58,7 +58,7 @@ def test_connection(required_columns: Tuple[str] = REGISTRATION_TABLE) -> bool:
         return False
 
 
-def insert_data(reg_table: Tuple[str, str, str, str, str, str] = REGISTRATION_TABLE) -> bool:
+def insert_user_to_database(reg_table: Tuple[str, str, str, str, str, str] = REGISTRATION_TABLE) -> bool:
     """"
     :param reg_table: Кортеж, содержащий названия столбцов для вставки. Базовые столбцы:
     'telegram_id',
@@ -78,33 +78,17 @@ def insert_data(reg_table: Tuple[str, str, str, str, str, str] = REGISTRATION_TA
     existing_data = cursor.fetchone()
 
     if existing_data:
-        # TODO в продакте не будет подтверждения перезаписи, т.е. нужна точка выхода, если запись уже есть:
-        # Если данные уже существуют, запрашиваем у пользователя обновление
-        # --------------------------------------------------------------------------------------------------------------
-        # update_option = input(
-        #     f"Данные для {telegram_username} {telegram_id} уже существуют. Хотите обновить их? (y/n): ")
-        # if update_option.lower() == 'y':
-        # --------------------------------------------------------------------------------------------------------------
-        if 1 == 1:
-            # Обновляем данные
-            update_query = 'UPDATE users SET telegram_username = ?, state_in_bot = ?, employee_code = ?, ' \
-                           'secret_employee_code = ?, registration_attempts = ? WHERE telegram_id = ? '
-            cursor.execute(update_query, REGISTRATION_TABLE)
-            print(f"Данные для {telegram_username} {telegram_id} успешно обновлены.")
-            successful_insert = True
-        # --------------------------------------------------------------------------------------------------------------
-        # else:
-        #     print(f"Ничего не вставлено для {telegram_username} {telegram_id}.")
-        #     successful_insert = False
-        # --------------------------------------------------------------------------------------------------------------
+        # Если данный юзер уже существует, ничего вставлять не надо:
+        print(f"Юзер {telegram_id}: данные уже есть БД")
+        successful_insert = False
     else:
-        # Данных нет, вставляем новую запись
+        # Если данного юзера нет, вставляем новую запись
         insert_query = 'INSERT INTO users (telegram_id, telegram_username, state_in_bot, employee_code, ' \
                        'secret_employee_code) VALUES (?, ?, ?, ?, ?, ?) '
         cursor.execute(insert_query,
                        (telegram_id, telegram_username, state_in_bot,
                         employee_code, secret_employee_code, registration_attempts))
-        print(f"Данные для {telegram_username} {telegram_id} успешно вставлены.")
+        print(f"Юзер {telegram_id}: данные успешно записаны в БД")
         successful_insert = True
 
     # Фиксируем изменения и закрываем соединение
