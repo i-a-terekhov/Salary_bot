@@ -6,6 +6,8 @@ import openpyxl
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
+from states import Registration
+
 router = Router()
 bot = Bot(TOKEN_FOUR)
 
@@ -82,7 +84,13 @@ async def find_it(target_cell, target_sheet, target_column_name, dict_of_persons
                 dict_of_persons[base_colum_value][target_column_name] = cell.value
 
 
-@router.message(F.document.file_name.endswith('.xlsx'))
+#TODO функция, высылающая руководителю данные из файла для подтверждения руководителем
+#TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников
+#TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
+#TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
+
+
+@router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document):
     # Оповещение
     text = f'Пользователь {message.from_user.username} (ID={message.from_user.id}) прислал зарплатную ведомость:'

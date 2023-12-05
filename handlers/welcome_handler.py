@@ -5,15 +5,14 @@ from typing import Dict, Any
 from aiogram import Router, F, Bot
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
-from database.db_common import insert_user_to_database, display_all_data, update_data_in_column, get_user_state_from_db, \
+from database.db_common import insert_user_to_database, update_data_in_column, get_user_state_from_db, \
     get_data_from_column
 
-from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FOUR
+from hidden.tokenfile import TOKEN_FOUR
 from encrypt.math_operations import check_employee_code
 
 bot = Bot(TOKEN_FOUR)
@@ -81,7 +80,20 @@ async def start_dialogue(message: Message):
 # Фильтр "StateFilter(None)" для того, чтобы после однократного нажатия, кнопка перестала реагировать:
 @router.callback_query(F.data.in_(["Пройти регистрацию"]), StateFilter(None))
 async def start_registration(callback: CallbackQuery, state: FSMContext):
-    print(f'Юзер {callback.chat.id}: нажал на кнопку "Пройти регистрацию"')
+    await callback.answer()
+    print(f'Юзер {callback.from_user.id}: нажал на кнопку "Пройти регистрацию"')
+
+    # Проверяем запись юзера. На случай, если в чате сохранилась кнопка "Пройти регистрацию", а юзер был удален из базы.
+    record_of_user = (
+        str(callback.from_user.id),
+        callback.from_user.username,
+        'waiting_for_employee_code',  # state_in_bot
+        '',  # employee_code
+        '',  # secret_employee_code
+        '3',  # registration_attempts
+    )
+    insert_user_to_database(record_of_user)
+    print(f'Юзер {callback.from_user.id}: restoring_state_from_database. Текущий статус: waiting_for_employee_code')
 
     # Устанавливаем пользователю состояние "Ожидание кода сотрудника"
     await state.set_state(Registration.waiting_for_employee_code)
@@ -107,7 +119,7 @@ async def waiting_for_employee_code(message: Message, state: FSMContext):
                                   "Например: 1111-1111-1111-1111\n"
                                   "У Вас будет три попытки!",
                              reply_markup=make_inline_row_keyboard(
-                                 ['Вернуться в самое начало']))
+                                 ["Изменить Код сотрудника"]))
         await state.set_state(Registration.waiting_for_secret_employee_code)
         update_data_in_column(
             telegram_id=str(message.from_user.id),
@@ -139,7 +151,9 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
     user_secret_employee_code = get_data_from_column(telegram_id=str(message.chat.id), column='secret_employee_code')
     if message.text == user_secret_employee_code:
         await message.answer(text="Отлично!\n"
-                                  "Регистрация прошла успешно. Когда руководитель вышлет данные, Вам придет уведомление")
+                                  "Регистрация прошла успешно.\n "
+                                  "Если Вы руководитель, отправьте табель в виде файла Excel.\n"
+                                  "Когда Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель")
         await state.set_state(Registration.employee_is_registered)
         update_data_in_column(
             telegram_id=str(message.from_user.id),
@@ -165,7 +179,10 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
 
         else:
             await message.answer(text=f"'Секретный код сотрудника' не соответствует коду сотрудника.\n"
-                                      f"Осталось попыток: {registration_attempts}")
+                                      f"Осталось попыток: {registration_attempts}",
+                                 reply_markup=make_inline_row_keyboard(
+                                     ["Изменить Код сотрудника"])
+                                 )
 
 
 @router.message(Registration.employee_is_banned)
@@ -182,12 +199,12 @@ async def employee_is_registered(message: Message, state: FSMContext):
 
     await state.set_state(Registration.employee_is_registered)
     await message.answer(text="Регистрация прошла успешно. Когда руководитель вышлет данные, Вам придет уведомление")
-    # TODO здесь можно поместить кнопку "запросить квиток"
 
 
-@router.callback_query(F.data.in_(["Вернуться в самое начало"]))
+@router.callback_query(Registration.waiting_for_secret_employee_code, F.data.in_(["Изменить Код сотрудника"]))
 async def cancel_registration(callback: CallbackQuery, state: FSMContext):
-    print(f'Юзер {callback.from_user.id}: нажал на кнопку "Вернуться в самое начало"')
+    await callback.answer()
+    print(f"Юзер {callback.from_user.id}: нажал на кнопку 'Изменить Код сотрудника'")
 
     await state.set_state(Registration.waiting_for_employee_code)
     update_data_in_column(
@@ -198,8 +215,3 @@ async def cancel_registration(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
         text="Введите 'Код сотрудника' (4-6 цифр)",
     )
-
-
-@router.message()
-async def nothing_handler(message: Message):
-    print(f'Юзер {message.from_user.id}: сработал ничегошний хендлер')

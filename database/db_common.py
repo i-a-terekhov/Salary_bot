@@ -84,11 +84,12 @@ def insert_user_to_database(reg_table: Tuple[str, str, str, str, str, str] = REG
     else:
         # Если данного юзера нет, вставляем новую запись
         insert_query = 'INSERT INTO users (telegram_id, telegram_username, state_in_bot, employee_code, ' \
-                       'secret_employee_code) VALUES (?, ?, ?, ?, ?, ?) '
+                       'secret_employee_code, registration_attempts) VALUES (?, ?, ?, ?, ?, ?) '
         cursor.execute(insert_query,
                        (telegram_id, telegram_username, state_in_bot,
                         employee_code, secret_employee_code, registration_attempts))
         print(f"Юзер {telegram_id}: данные успешно записаны в БД")
+        display_all_data()
         successful_insert = True
 
     # Фиксируем изменения и закрываем соединение
