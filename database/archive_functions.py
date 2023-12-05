@@ -141,3 +141,7 @@ def delete_empty_rows(table_name: str = TABLE_NAME):
 
     # Фиксируем изменения и закрываем соединение
     connect.commit()
+
+
+# if __name__ == '__main__':
+#     add_column(column_name='registration_attempts', data_type='TEXT')

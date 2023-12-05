@@ -4,7 +4,9 @@ from typing import List, Tuple
 
 DATABASE_REG_NAME = 'database/bd.sql'
 TABLE_NAME = 'users'
-REGISTRATION_TABLE = ('telegram_id', 'telegram_username', 'state_in_bot', 'employee_code', 'secret_employee_code')
+REGISTRATION_TABLE = ('telegram_id', 'telegram_username', 'state_in_bot',
+                      'employee_code', 'secret_employee_code', 'registration_attempts')
+SALARY_TABLE = ('employee_code', 'secret_salary_code', 'author_of_entry', '')
 
 
 def open_connection(db_name: str = DATABASE_REG_NAME, name_of_columns: Tuple[str] = REGISTRATION_TABLE) -> Connection:
@@ -56,7 +58,7 @@ def test_connection(required_columns: Tuple[str] = REGISTRATION_TABLE) -> bool:
         return False
 
 
-def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) -> bool:
+def insert_data(reg_table: Tuple[str, str, str, str, str, str] = REGISTRATION_TABLE) -> bool:
     """"
     :param reg_table: Кортеж, содержащий названия столбцов для вставки. Базовые столбцы:
     'telegram_id',
@@ -64,8 +66,9 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
     'state_in_bot',
     'employee_code',
     'secret_employee_code'
+    'registration_attempts')
     """
-    telegram_id, telegram_username, state_in_bot, employee_code, secret_employee_code = reg_table
+    telegram_id, telegram_username, state_in_bot, employee_code, secret_employee_code, registration_attempts = reg_table
     connect = open_connection()
     cursor = connect.cursor()
 
@@ -85,9 +88,8 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
         if 1 == 1:
             # Обновляем данные
             update_query = 'UPDATE users SET telegram_username = ?, state_in_bot = ?, employee_code = ?, ' \
-                           'secret_employee_code = ? WHERE telegram_id = ? '
-            cursor.execute(update_query,
-                           (telegram_id, telegram_username, state_in_bot, employee_code, secret_employee_code,))
+                           'secret_employee_code = ?, registration_attempts = ? WHERE telegram_id = ? '
+            cursor.execute(update_query, REGISTRATION_TABLE)
             print(f"Данные для {telegram_username} {telegram_id} успешно обновлены.")
             successful_insert = True
         # --------------------------------------------------------------------------------------------------------------
@@ -98,9 +100,10 @@ def insert_data(reg_table: Tuple[str, str, str, str, str] = REGISTRATION_TABLE) 
     else:
         # Данных нет, вставляем новую запись
         insert_query = 'INSERT INTO users (telegram_id, telegram_username, state_in_bot, employee_code, ' \
-                       'secret_employee_code) VALUES (?, ?, ?, ?, ?) '
+                       'secret_employee_code) VALUES (?, ?, ?, ?, ?, ?) '
         cursor.execute(insert_query,
-                       (telegram_id, telegram_username, state_in_bot, employee_code, secret_employee_code))
+                       (telegram_id, telegram_username, state_in_bot,
+                        employee_code, secret_employee_code, registration_attempts))
         print(f"Данные для {telegram_username} {telegram_id} успешно вставлены.")
         successful_insert = True
 
@@ -115,7 +118,7 @@ def update_data_in_column(telegram_id: str, column: str, value: str) -> None:
 
     update_query = f'UPDATE users SET {column} = ? WHERE telegram_id = ?'
     cursor.execute(update_query, (value, telegram_id))
-    print(f"Данные для {telegram_id} обновлено в столбце {column}")
+    print(f"Для юзера {telegram_id} обновлено значение в столбце {column} на {value}")
 
     close_connection(connect=connect)
 

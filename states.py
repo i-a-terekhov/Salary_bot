@@ -7,6 +7,7 @@ class Registration(StatesGroup):
     waiting_for_employee_code = State()
     waiting_for_secret_employee_code = State()
     employee_is_registered = State()
+    employee_is_banned = State()
     # Выводим первичное приветственное сообщение.
     # Ожидаем любой ввод (зарплатный файл или "секретный код сотрудника" или случайное сообщение)
     # > если файл корректный, заносим данного юзера в БД как босса -> waiting_for_access_summ
@@ -54,6 +55,7 @@ class BossHere(StatesGroup):
     # > если файл некорректный -> остаемся в этом состоянии, сообщаем о некорректности ввода
     # > если нажата кнопка "проверить текущие данные в БД" -> выводим таблицу с залитыми данными по сотрудникам,
     #   у которых босс - текущий user_id (либо пусто, если данных нет)
+
 
 class DeleteCommon(StatesGroup):
     waiting_for_delete_start = State()
