@@ -20,49 +20,71 @@ end_cell = "I210"
 
 # Получение численных значений для столбцов и строк
 start_col = openpyxl.utils.column_index_from_string(start_cell[:1])
-end_col = openpyxl.utils.column_index_from_string(end_cell[:1])
 start_row = int(start_cell[1:])
+end_col = openpyxl.utils.column_index_from_string(end_cell[:1])
 end_row = int(end_cell[1:])
 
-base_cell = "Код."
-dependent_cell_one = "Должность"
-dependent_cell_two = "Ф.И.О."
-dependent_cell_three = "Итог З/П"
-dependent_cell_four = "Итог мотивация"
-dependent_cell_five = "Итог З\П+Бонус"
-dependent_cell_six = "Премия(компенсация отпуска)"
-dependent_cell_seven = "Вычеты ОС(форма/прочее)"
-dependent_cell_eight = "Вычеты ОС(Инвентаризация)"
-dependents_list = [dependent_cell_one, dependent_cell_two, dependent_cell_three,
-                   dependent_cell_four, dependent_cell_five, dependent_cell_six,
-                   dependent_cell_seven, dependent_cell_eight]
+base_column = "Код."
+target_column_one = "Должность"
+target_column_two = "Ф.И.О."
+target_column_three = "Итог З/П"
+target_column_four = "Итог мотивация"
+target_column_five = "Итог З\П+Бонус"
+target_column_six = "Премия(компенсация отпуска)"
+target_column_seven = "Вычеты ОС(форма/прочее)"
+target_column_eight = "Вычеты ОС(Инвентаризация)"
+target_columns = [target_column_one, target_column_two, target_column_three,
+                  target_column_four, target_column_five, target_column_six,
+                  target_column_seven, target_column_eight]
 
 
-async def search_salary_value(target_sheet, base_cell_name=base_cell):
-    # Ищем базовую ячейку в диапазоне start_cell:end_cell
-    target_cell = None
+def search_salary_value(target_sheet, base_cell_name=base_column) -> dict:
+    # Ищем базовую ячейку (шапку базового столбца) в диапазоне start_cell:end_cell
+    head_of_base_column = None
     for row in target_sheet.iter_rows(min_row=start_row, max_row=end_row, min_col=start_col, max_col=end_col):
         for cell in row:
             if cell.value == base_cell_name:
-                target_cell = cell
+                head_of_base_column = cell
                 break
-        if target_cell:
+        if head_of_base_column:
             break
-    # Если базовая ячейка (шапка базового столбца) найдена, ищем целевые столбцы:
+    # Если базовая ячейка (шапка базового столбца) найдена, считаем, что найден лист с таблицей, ищем целевые столбцы:
     if target_sheet:
         dict_of_persons = {}
-        for target in dependents_list:
-            await find_it(target_cell, target_sheet, target_column_name=target, dict_of_persons=dict_of_persons)
-
-        for person_no in dict_of_persons:
-            text = f'{dict_of_persons[person_no]["Ф.И.О."]} ({dict_of_persons[person_no]["Должность"]}): {dict_of_persons[person_no][dependent_cell_five]} руб.'
-            await bot.send_message(chat_id=OWNER_CHAT_ID, text=text)
-            print(person_no, ':', dict_of_persons[person_no])
-            print('-' * 50)
+        for target in target_columns:
+            search_values_of_one_target_column(
+                target_cell=head_of_base_column, target_sheet=target_sheet,
+                target_column_name=target, dict_of_persons=dict_of_persons
+            )
+        return dict_of_persons
 
 
-async def find_it(target_cell, target_sheet, target_column_name, dict_of_persons):
-    # Ищем целевой столбец
+def forming_small_results_of_table(dict_of_persons: dict) -> str:
+    # Формируем краткий текст для подтверждения заливки руководителем.
+    # В данном случае, в формате: "Фамилия: итог ЗП"
+    text = ''
+    for person_no in dict_of_persons:
+
+        surname = str(dict_of_persons[person_no]["Ф.И.О."]).split(' ')[0]
+        if len(surname) < 15:
+            extra_space = 15 - len(surname)
+            surname += ' ' * extra_space
+
+        summ = dict_of_persons[person_no][target_column_five]
+
+        text += f'{surname}{summ:_} руб.\n'
+    print(text)
+    return text
+
+
+def forming_results_for_one_employee(dict_of_persons: dict) -> str:
+    # TODO функция, формирующая один квиток
+    pass
+
+
+def search_values_of_one_target_column(target_cell, target_sheet, target_column_name, dict_of_persons) -> None:
+    # Ищем целевой столбец.
+    # Например, если базовый - "ID юзера", то целевым может быть - "Показатель" юзера по какому-то критерию
     target_column = None
     if target_cell:
         for col in target_sheet.iter_cols(min_row=target_cell.row, max_row=target_sheet.max_row,
@@ -77,18 +99,22 @@ async def find_it(target_cell, target_sheet, target_column_name, dict_of_persons
     if target_column:
         for cell in target_column:
             base_colum_value = target_sheet.cell(row=cell.row, column=target_cell.column).value
-            if base_colum_value is not None:
+            # Так же проверяем первые 4 символа (являются ли числами), чтобы отбросить строки-разделители
+            if len(str(base_colum_value)) > 4 and str(base_colum_value)[:4].isdigit():
                 # Добавляем значения в словарь
                 if base_colum_value not in dict_of_persons:
                     dict_of_persons[base_colum_value] = {}
                 dict_of_persons[base_colum_value][target_column_name] = cell.value
 
 
-#TODO функция, высылающая руководителю данные из файла для подтверждения руководителем
-#TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников
+# Когда руководитель подтверждает суммы, бот просит его придумать пароль для этой конкретной заливки
 #TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
+
+# Когда ЗП-пароль установлен, данные перемещаются в БД, а руководителю высылаются секретные коды сотрудников
+#TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
 #TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
 
+#TODO добавить удаление сообщения с файлом!!!
 
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document):
@@ -121,9 +147,16 @@ async def handle_excel_file(message: types.Document):
 
     if target_sheet:
         # Используем target_sheet для дальнейших действий
-        print(f"Найден лист: {target_sheet.title}")
+        dict_of_persons = search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
+        text = forming_small_results_of_table(dict_of_persons=dict_of_persons)
+        await bot.send_message(chat_id=message.from_user.id, text='В Вашем файле я обнаружил зарплатную таблицу. '
+                                                                  'Вот краткие итоги, чтобы проверить суммы:')
+        await bot.send_message(chat_id=message.from_user.id, text=text)
 
-        await search_salary_value(target_sheet=target_sheet, base_cell_name=base_cell)
+        await bot.send_message(chat_id=message.from_user.id, text='Готовы разослать эти данные?')
+        #TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
+
+
 
     else:
         print("Лист не найден")

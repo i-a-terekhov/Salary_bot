@@ -44,6 +44,8 @@ async def restoring_state_from_database(message: Message, state: FSMContext):
         elif name_of_current_state == 'employee_is_banned':
             await employee_is_banned(message=message)
 
+        #TODO добавить обработку при получении файла
+
 
 @router.message(Command("start"), StateFilter(None))
 async def start_dialogue(message: Message):
