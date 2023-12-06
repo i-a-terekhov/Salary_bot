@@ -25,18 +25,36 @@ end_col = openpyxl.utils.column_index_from_string(end_cell[:1])
 end_row = int(end_cell[1:])
 
 base_column = "Код."
-target_column_one = "Должность"
-target_column_two = "Ф.И.О."
-target_column_three = "Итог З/П"
-target_column_four = "Итог мотивация"
-target_column_five = "Итог З\П+Бонус"
-target_column_six = "Премия(компенсация отпуска)"
-target_column_seven = "Вычеты ОС(форма/прочее)"
-target_column_eight = "Вычеты ОС(Инвентаризация)"
-target_columns = [target_column_one, target_column_two, target_column_three,
-                  target_column_four, target_column_five, target_column_six,
-                  target_column_seven, target_column_eight]
+target_column_01 = "Должность"
+target_column_02 = "Ф.И.О."
+target_column_03 = "Итог З/П"  # Оклад
+target_column_04 = "Итог мотивация"  # Премия
+target_column_05 = "Итог З\П+Бонус"  #  Всего
+target_column_06 = "Премия(компенсация отпуска)"
+target_column_07 = "Вычеты ОС(форма/прочее)"
+target_column_08 = "Вычеты ОС(Инвентаризация)"
+target_column_09 = 'Вычеты-штрафы'
+target_column_10 = 'Факт часы'
+target_column_11 = 'Кол-во ошибок (примечание)'
+target_column_12 = 'Сумма ошибки'
+target_column_13 = 'Единый коэфф.'
+target_column_14 = 'Дополнительные работы Н/Ч'
+target_column_15 = 'Выдача'
+target_column_16 = 'Доставки(Подготовка отгрузок)'
+target_column_17 = 'Приемка'
+target_column_18 = 'Размещение'
+target_column_19 = 'Объем М3 кросс.'
+target_column_20 = 'Сборка отгрузок'
 
+
+target_columns = [target_column_01, target_column_02, target_column_03, target_column_04, target_column_05,
+                  target_column_06, target_column_07, target_column_08, target_column_09, target_column_10,
+                  target_column_11, target_column_12, target_column_13, target_column_14, target_column_15,
+                  target_column_16, target_column_17, target_column_18, target_column_19, target_column_20]
+
+offset_columns = [target_column_15, target_column_16, target_column_17,
+                  target_column_18, target_column_19, target_column_20]
+amount_of_indentation = 12
 
 def search_salary_value(target_sheet, base_cell_name=base_column) -> dict:
     # Ищем базовую ячейку (шапку базового столбца) в диапазоне start_cell:end_cell
@@ -51,9 +69,10 @@ def search_salary_value(target_sheet, base_cell_name=base_column) -> dict:
     # Если базовая ячейка (шапка базового столбца) найдена, считаем, что найден лист с таблицей, ищем целевые столбцы:
     if target_sheet:
         dict_of_persons = {}
+
         for target in target_columns:
             search_values_of_one_target_column(
-                target_cell=head_of_base_column, target_sheet=target_sheet,
+                base_column_head=head_of_base_column, target_sheet=target_sheet,
                 target_column_name=target, dict_of_persons=dict_of_persons
             )
         return dict_of_persons
@@ -70,7 +89,7 @@ def forming_small_results_of_table(dict_of_persons: dict) -> str:
             extra_space = 15 - len(surname)
             surname += ' ' * extra_space
 
-        summ = dict_of_persons[person_no][target_column_five]
+        summ = dict_of_persons[person_no][target_column_05]
 
         text += f'{surname}{summ:_} руб.\n'
     print(text)
@@ -82,13 +101,15 @@ def forming_results_for_one_employee(dict_of_persons: dict) -> str:
     pass
 
 
-def search_values_of_one_target_column(target_cell, target_sheet, target_column_name, dict_of_persons) -> None:
+def search_values_of_one_target_column(base_column_head, target_sheet, target_column_name, dict_of_persons) -> None:
     # Ищем целевой столбец.
     # Например, если базовый - "ID юзера", то целевым может быть - "Показатель" юзера по какому-то критерию
     target_column = None
-    if target_cell:
-        for col in target_sheet.iter_cols(min_row=target_cell.row, max_row=target_sheet.max_row,
-                                          min_col=target_cell.column, max_col=target_sheet.max_column):
+    if base_column_head:
+        #TODO необходимо внести изменения в зоны для поиска целевых столбцов, т.к. наименования столбцов повторяются
+        # а столбцы с нужными данными находятся не в начале:
+        for col in target_sheet.iter_cols(min_row=base_column_head.row, max_row=target_sheet.max_row,
+                                          min_col=base_column_head.column, max_col=target_sheet.max_column):
             for cell in col:
                 if cell.value == target_column_name:
                     target_column = col
@@ -97,8 +118,24 @@ def search_values_of_one_target_column(target_cell, target_sheet, target_column_
                 break
     # Если целевой столбец найден, выводим значения для непустых значений в базовом столбце
     if target_column:
+
+        # --------------------------------------------------------------------------------------------------------------
+        # Тест "сдвига" для столбцов со сдвигом
+        # Получаем индекс столбца
+        target_column_index = target_column[0].column
+        # Вычисляем новый индекс с учетом смещения
+        new_column_index = target_column_index + amount_of_indentation
+        # Получаем столбец справа от target_column
+        new_target_column = target_sheet.iter_cols(min_row=base_column_head.row, max_row=target_sheet.max_row,
+                                                   min_col=new_column_index, max_col=new_column_index)
+        # Печатаем значения в новом столбце
+        for cell_tuple in new_target_column:
+            for cell in cell_tuple:
+                print(cell.value)
+        # --------------------------------------------------------------------------------------------------------------
+
         for cell in target_column:
-            base_colum_value = target_sheet.cell(row=cell.row, column=target_cell.column).value
+            base_colum_value = target_sheet.cell(row=cell.row, column=base_column_head.column).value
             # Так же проверяем первые 4 символа (являются ли числами), чтобы отбросить строки-разделители
             if len(str(base_colum_value)) > 4 and str(base_colum_value)[:4].isdigit():
                 # Добавляем значения в словарь
@@ -154,9 +191,8 @@ async def handle_excel_file(message: types.Document):
         await bot.send_message(chat_id=message.from_user.id, text=text)
 
         await bot.send_message(chat_id=message.from_user.id, text='Готовы разослать эти данные?')
+        print(dict_of_persons)
         #TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
-
-
 
     else:
         print("Лист не найден")
