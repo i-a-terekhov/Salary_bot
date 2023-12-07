@@ -108,9 +108,11 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
     if base_column_head:
         #TODO необходимо внести изменения в зоны для поиска целевых столбцов, т.к. наименования столбцов повторяются
         # а столбцы с нужными данными находятся не в начале:
-        for col in target_sheet.iter_cols(min_row=base_column_head.row, max_row=target_sheet.max_row,
+
+        for col in target_sheet.iter_cols(min_row=39, max_row=39,
                                           min_col=base_column_head.column, max_col=target_sheet.max_column):
             for cell in col:
+                print(f'Сравниваем cell.value [{cell.value}] и target_column_name [{target_column_name}]')
                 if cell.value == target_column_name:
                     target_column = col
                     break
@@ -119,20 +121,12 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
     # Если целевой столбец найден, выводим значения для непустых значений в базовом столбце
     if target_column:
 
-        # --------------------------------------------------------------------------------------------------------------
-        # Тест "сдвига" для столбцов со сдвигом
-        # Получаем индекс столбца
-        target_column_index = target_column[0].column
-        # Вычисляем новый индекс с учетом смещения
-        new_column_index = target_column_index + amount_of_indentation
-        # Получаем столбец справа от target_column
-        new_target_column = target_sheet.iter_cols(min_row=base_column_head.row, max_row=target_sheet.max_row,
-                                                   min_col=new_column_index, max_col=new_column_index)
-        # Печатаем значения в новом столбце
-        for cell_tuple in new_target_column:
-            for cell in cell_tuple:
-                print(cell.value)
-        # --------------------------------------------------------------------------------------------------------------
+        # Если целевой столбец из числа требующих сдвига, делаем сдвиг:
+        if target_column[0].column in offset_columns:
+            print('old', target_column_name)
+            # Используем свойство column для получения номера столбца, добавляем смещение и создаем новый объект столбца
+            new_column_index = target_column[0].column + amount_of_indentation
+            target_column = target_sheet[new_column_index]
 
         for cell in target_column:
             base_colum_value = target_sheet.cell(row=cell.row, column=base_column_head.column).value
@@ -186,6 +180,8 @@ async def handle_excel_file(message: types.Document):
         # Используем target_sheet для дальнейших действий
         dict_of_persons = search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
         text = forming_small_results_of_table(dict_of_persons=dict_of_persons)
+        if not text:
+            text = 'Ничего не найдено'
         await bot.send_message(chat_id=message.from_user.id, text='В Вашем файле я обнаружил зарплатную таблицу. '
                                                                   'Вот краткие итоги, чтобы проверить суммы:')
         await bot.send_message(chat_id=message.from_user.id, text=text)
