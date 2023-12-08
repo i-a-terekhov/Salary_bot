@@ -29,7 +29,7 @@ target_column_01 = "Должность"
 target_column_02 = "Ф.И.О."
 target_column_03 = "Итог З/П"  # Оклад
 target_column_04 = "Итог мотивация"  # Премия
-target_column_05 = "Итог З\П+Бонус"  #  Всего
+target_column_05 = "Итог З\П+Бонус"  # Всего
 target_column_06 = "Премия(компенсация отпуска)"
 target_column_07 = "Вычеты ОС(форма/прочее)"
 target_column_08 = "Вычеты ОС(Инвентаризация)"
@@ -46,7 +46,6 @@ target_column_18 = 'Размещение'
 target_column_19 = 'Объем М3 кросс.'
 target_column_20 = 'Сборка отгрузок'
 
-
 target_columns = [target_column_01, target_column_02, target_column_03, target_column_04, target_column_05,
                   target_column_06, target_column_07, target_column_08, target_column_09, target_column_10,
                   target_column_11, target_column_12, target_column_13, target_column_14, target_column_15,
@@ -55,6 +54,7 @@ target_columns = [target_column_01, target_column_02, target_column_03, target_c
 offset_columns = [target_column_15, target_column_16, target_column_17,
                   target_column_18, target_column_19, target_column_20]
 amount_of_indentation = 12
+
 
 def search_salary_value(target_sheet, base_cell_name=base_column) -> dict:
     # Ищем базовую ячейку (шапку базового столбца) в диапазоне start_cell:end_cell
@@ -109,24 +109,43 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
         #TODO необходимо внести изменения в зоны для поиска целевых столбцов, т.к. наименования столбцов повторяются
         # а столбцы с нужными данными находятся не в начале:
 
+        # for col in target_sheet.iter_cols(min_row=base_column_head.row, max_row=target_sheet.max_row,
+        #                                   min_col=base_column_head.column, max_col=target_sheet.max_column):
+
+        # Проходим по ряду, в котором находятся истинные заголовки:
         for col in target_sheet.iter_cols(min_row=39, max_row=39,
                                           min_col=base_column_head.column, max_col=target_sheet.max_column):
+            # Действия с col
             for cell in col:
-                print(f'Сравниваем cell.value [{cell.value}] и target_column_name [{target_column_name}]')
+                # Если значение ячейки совпадает с именем столбца, требующего сдвига, считаем det = 1, иначе det = 0:
+
                 if cell.value == target_column_name:
-                    target_column = col
-                    break
+                    det = 1
+                else:
+                    det = 0
+
+                # Проходим по строкам столбца col
+                for cell_in_targ_col in target_sheet.iter_cols(min_row=base_column_head.row,
+                                                               max_row=target_sheet.max_row,
+                                                               min_col=col[0].column + amount_of_indentation * det,
+                                                               max_col=col[0].column + amount_of_indentation * det):
+                    target_column = cell_in_targ_col
+                # print(target_column)
+                # print('---')
+                break
             if target_column:
                 break
     # Если целевой столбец найден, выводим значения для непустых значений в базовом столбце
     if target_column:
+        print(target_column)
+        print('----' * 20)
 
-        # Если целевой столбец из числа требующих сдвига, делаем сдвиг:
-        if target_column[0].column in offset_columns:
-            print('old', target_column_name)
-            # Используем свойство column для получения номера столбца, добавляем смещение и создаем новый объект столбца
-            new_column_index = target_column[0].column + amount_of_indentation
-            target_column = target_sheet[new_column_index]
+        # # Если целевой столбец из числа требующих сдвига, делаем сдвиг:
+        # if target_column[0].column in offset_columns:
+        #     print('old', target_column_name)
+        #     # Используем свойство column для получения номера столбца, добавляем смещение и создаем новый объект столбца
+        #     new_column_index = target_column[0].column + amount_of_indentation
+        #     target_column = target_sheet[new_column_index]
 
         for cell in target_column:
             base_colum_value = target_sheet.cell(row=cell.row, column=base_column_head.column).value
@@ -139,13 +158,13 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
 
 
 # Когда руководитель подтверждает суммы, бот просит его придумать пароль для этой конкретной заливки
-#TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
+# TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
 
 # Когда ЗП-пароль установлен, данные перемещаются в БД, а руководителю высылаются секретные коды сотрудников
-#TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
-#TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
+# TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
+# TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
 
-#TODO добавить удаление сообщения с файлом!!!
+# TODO добавить удаление сообщения с файлом!!!
 
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document):
@@ -188,11 +207,10 @@ async def handle_excel_file(message: types.Document):
 
         await bot.send_message(chat_id=message.from_user.id, text='Готовы разослать эти данные?')
         print(dict_of_persons)
-        #TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
+        # TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
 
     else:
         print("Лист не найден")
 
     # Закрываем скачанный файл
     wb.close()
-
