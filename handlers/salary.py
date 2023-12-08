@@ -39,7 +39,7 @@ target_column_11 = 'Кол-во ошибок (примечание)'
 target_column_12 = 'Сумма ошибки'
 target_column_13 = 'Единый коэфф.'
 target_column_14 = 'Дополнительные работы Н/Ч'
-target_column_15 = 'Выдача'
+target_column_15 = 'Выдача '
 target_column_16 = 'Доставки(Подготовка отгрузок)'
 target_column_17 = 'Приемка'
 target_column_18 = 'Размещение'
@@ -106,51 +106,41 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
     # Например, если базовый - "ID юзера", то целевым может быть - "Показатель" юзера по какому-то критерию
     target_column = None
     if base_column_head:
-        #TODO необходимо внести изменения в зоны для поиска целевых столбцов, т.к. наименования столбцов повторяются
-        # а столбцы с нужными данными находятся не в начале:
-
-        # for col in target_sheet.iter_cols(min_row=base_column_head.row, max_row=target_sheet.max_row,
-        #                                   min_col=base_column_head.column, max_col=target_sheet.max_column):
-
-        # Проходим по ряду, в котором находятся истинные заголовки:
+        # Проходим по ряду, в котором находятся истинные заголовки (строка 39:
         for col in target_sheet.iter_cols(min_row=39, max_row=39,
                                           min_col=base_column_head.column, max_col=target_sheet.max_column):
-            # Действия с col
+
+            # В каждом столбце всего одна строка, поэтому следующий цикл проходит один раз:
             for cell in col:
-                # Если значение ячейки совпадает с именем столбца, требующего сдвига, считаем det = 1, иначе det = 0:
-
+                target_column = False
                 if cell.value == target_column_name:
-                    det = 1
-                else:
-                    det = 0
 
-                # Проходим по строкам столбца col
-                for cell_in_targ_col in target_sheet.iter_cols(min_row=base_column_head.row,
-                                                               max_row=target_sheet.max_row,
-                                                               min_col=col[0].column + amount_of_indentation * det,
-                                                               max_col=col[0].column + amount_of_indentation * det):
-                    target_column = cell_in_targ_col
-                # print(target_column)
-                # print('---')
-                break
+                    # Если значение ячейки совпадает со столбцом, требующим сдвига, считаем det = 1, иначе det = 0:
+                    if cell.value in offset_columns:
+                        det = 1
+                    else:
+                        det = 0
+
+                    # Проходим по строкам столбца col, добавляя каждую ячейку в target_column
+                    target_column = tuple()
+                    for cell_in_targ_col in target_sheet.iter_cols(min_row=base_column_head.row,
+                                                                   max_row=target_sheet.max_row,
+                                                                   min_col=col[0].column + amount_of_indentation * det,
+                                                                   max_col=col[0].column + amount_of_indentation * det):
+                        target_column += cell_in_targ_col
+
+            # Прерываем цикл поиска целевого столбца, при первом найденном (ввиду дублирования наименования столбцов)
             if target_column:
                 break
+
     # Если целевой столбец найден, выводим значения для непустых значений в базовом столбце
     if target_column:
-        print(target_column)
-        print('----' * 20)
-
-        # # Если целевой столбец из числа требующих сдвига, делаем сдвиг:
-        # if target_column[0].column in offset_columns:
-        #     print('old', target_column_name)
-        #     # Используем свойство column для получения номера столбца, добавляем смещение и создаем новый объект столбца
-        #     new_column_index = target_column[0].column + amount_of_indentation
-        #     target_column = target_sheet[new_column_index]
-
         for cell in target_column:
             base_colum_value = target_sheet.cell(row=cell.row, column=base_column_head.column).value
+
             # Так же проверяем первые 4 символа (являются ли числами), чтобы отбросить строки-разделители
             if len(str(base_colum_value)) > 4 and str(base_colum_value)[:4].isdigit():
+
                 # Добавляем значения в словарь
                 if base_colum_value not in dict_of_persons:
                     dict_of_persons[base_colum_value] = {}
