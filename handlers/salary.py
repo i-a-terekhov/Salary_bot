@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from aiogram import Bot, Router, F, types
 
 from hidden.tokenfile import TOKEN_FOUR, OWNER_CHAT_ID
@@ -6,6 +8,7 @@ import openpyxl
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
+from keyboards.simple_keyboard import make_inline_row_keyboard
 from states import Registration
 
 router = Router()
@@ -146,6 +149,17 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
                     dict_of_persons[base_colum_value] = {}
                 dict_of_persons[base_colum_value][target_column_name] = cell.value
 
+    # После полного формирования словаря, обнуляем значения строчных показателей для должностей с нестрочной мотивацией:
+    positions_to_reset = ['Начальник склада', 'Заместитель начальника склада', 'Логист-претензионист',
+                          'Супервизор', 'Старший кладовщик', 'Диспетчер', 'Старший оператор склада', 'Оператор склада']
+    keys_to_reset = ['Выдача ', 'Доставки(Подготовка отгрузок)', 'Приемка', 'Размещение', 'Объем М3 кросс.',
+                     'Сборка отгрузок']
+    for key, data in dict_of_persons.items():
+        position = data.get('Должность', '')
+        if position in positions_to_reset:
+            for key_to_reset in keys_to_reset:
+                data[key_to_reset] = None
+
 
 # Когда руководитель подтверждает суммы, бот просит его придумать пароль для этой конкретной заливки
 # TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
@@ -195,9 +209,13 @@ async def handle_excel_file(message: types.Document):
                                                                   'Вот краткие итоги, чтобы проверить суммы:')
         await bot.send_message(chat_id=message.from_user.id, text=text)
 
-        await bot.send_message(chat_id=message.from_user.id, text='Готовы разослать эти данные?')
-        print(dict_of_persons)
+        await bot.send_message(
+            chat_id=message.from_user.id, text='Готовы разослать эти данные?',
+            reply_markup=make_inline_row_keyboard(["Да, выслать данные"]))
+        # pprint(dict_of_persons)
+
         # TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
+        # TODO сделать словарь глобальной переменной. Прикрутить кнопку "Нет, не готов выслать данные", которая удалит словарь
 
     else:
         print("Лист не найден")

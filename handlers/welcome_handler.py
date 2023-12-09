@@ -113,6 +113,8 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
 async def waiting_for_employee_code(message: Message, state: FSMContext):
     print(f'Юзер {message.chat.id}: waiting_for_employee_code')
 
+    #TODO добавить проверку полученного кода в БД
+
     secret_employee_code = check_employee_code(message.text)
     if secret_employee_code:
         await message.answer(text="Отлично!\n"
@@ -133,7 +135,7 @@ async def waiting_for_employee_code(message: Message, state: FSMContext):
             column='employee_code',
             value=message.text
         )
-        # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", В БД -
+        # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", в БД -
         # это защита от подбора значения на следующем шаге, где "Секретный код сотрудника" будет вводить юзер
         update_data_in_column(
             telegram_id=str(message.from_user.id),
