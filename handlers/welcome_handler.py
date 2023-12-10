@@ -44,7 +44,7 @@ async def restoring_state_from_database(message: Message, state: FSMContext):
         elif name_of_current_state == 'employee_is_banned':
             await employee_is_banned(message=message)
 
-        #TODO добавить обработку при получении файла
+        #TODO добавить обработку при получении файла: если employee_is_registered, принимаем файл.
 
 
 @router.message(Command("start"), StateFilter(None))
@@ -113,7 +113,7 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
 async def waiting_for_employee_code(message: Message, state: FSMContext):
     print(f'Юзер {message.chat.id}: waiting_for_employee_code')
 
-    #TODO добавить проверку полученного кода в БД
+    # TODO добавить проверку полученного кода на наличие в БД
 
     secret_employee_code = check_employee_code(message.text)
     if secret_employee_code:

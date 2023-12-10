@@ -1,6 +1,7 @@
 from pprint import pprint
 
 from aiogram import Bot, Router, F, types
+from aiogram.types import Message, CallbackQuery
 
 from hidden.tokenfile import TOKEN_FOUR, OWNER_CHAT_ID
 
@@ -8,7 +9,7 @@ import openpyxl
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
-from keyboards.simple_keyboard import make_inline_row_keyboard
+from keyboards.simple_keyboard import make_inline_rows_keyboard
 from states import Registration
 
 router = Router()
@@ -58,8 +59,16 @@ offset_columns = [target_column_15, target_column_16, target_column_17,
                   target_column_18, target_column_19, target_column_20]
 amount_of_indentation = 12
 
+dict_of_persons = {}
 
-def search_salary_value(target_sheet, base_cell_name=base_column) -> dict:
+
+async def delete_some_messages(chat_id: int, numbers_of_message: list[int]):
+    for num in numbers_of_message:
+        await bot.delete_message(chat_id=chat_id, message_id=num)
+
+
+def search_salary_value(target_sheet, base_cell_name=base_column):
+    global dict_of_persons
     # Ищем базовую ячейку (шапку базового столбца) в диапазоне start_cell:end_cell
     head_of_base_column = None
     for row in target_sheet.iter_rows(min_row=start_row, max_row=end_row, min_col=start_col, max_col=end_col):
@@ -76,12 +85,12 @@ def search_salary_value(target_sheet, base_cell_name=base_column) -> dict:
         for target in target_columns:
             search_values_of_one_target_column(
                 base_column_head=head_of_base_column, target_sheet=target_sheet,
-                target_column_name=target, dict_of_persons=dict_of_persons
+                target_column_name=target
             )
-        return dict_of_persons
 
 
-def forming_small_results_of_table(dict_of_persons: dict) -> str:
+def forming_small_results_of_table() -> str:
+    global dict_of_persons
     # Формируем краткий текст для подтверждения заливки руководителем.
     # В данном случае, в формате: "Фамилия: итог ЗП"
     text = ''
@@ -99,12 +108,23 @@ def forming_small_results_of_table(dict_of_persons: dict) -> str:
     return text
 
 
-def forming_results_for_one_employee(dict_of_persons: dict) -> str:
-    # TODO функция, формирующая один квиток
+@router.callback_query(F.data.in_(["Посмотреть квиток"]))
+async def select_an_employee(callback: CallbackQuery) -> None:
+    global dict_of_persons
+    keys = list(dict_of_persons)
+    await callback.message.answer(
+        text='Выберите код сотрудника',
+        reply_markup=make_inline_rows_keyboard(keys)
+    )
+
+
+@router.callback_query(F.data.in_([""]))
+async def forming_results_for_one_employee():
     pass
 
 
-def search_values_of_one_target_column(base_column_head, target_sheet, target_column_name, dict_of_persons) -> None:
+def search_values_of_one_target_column(base_column_head, target_sheet, target_column_name) -> None:
+    global dict_of_persons
     # Ищем целевой столбец.
     # Например, если базовый - "ID юзера", то целевым может быть - "Показатель" юзера по какому-то критерию
     target_column = None
@@ -168,14 +188,13 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
 # TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
 # TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
 
-# TODO добавить удаление сообщения с файлом!!!
 
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document):
     # Оповещение
     text = f'Юзер {message.from_user.id} прислал зарплатную ведомость'
     print(text)
-    await bot.send_document(chat_id=OWNER_CHAT_ID, document=message.document.file_id, caption=message.caption)
+    # await bot.send_document(chat_id=OWNER_CHAT_ID, document=message.document.file_id, caption=message.caption)
 
     # Получаем информацию о файле
     file_info = await bot.get_file(message.document.file_id)
@@ -201,21 +220,23 @@ async def handle_excel_file(message: types.Document):
 
     if target_sheet:
         # Используем target_sheet для дальнейших действий
-        dict_of_persons = search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
-        text = forming_small_results_of_table(dict_of_persons=dict_of_persons)
+        search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
+        text = forming_small_results_of_table()
         if not text:
             text = 'Ничего не найдено'
-        await bot.send_message(chat_id=message.from_user.id, text='В Вашем файле я обнаружил зарплатную таблицу. '
-                                                                  'Вот краткие итоги, чтобы проверить суммы:')
-        await bot.send_message(chat_id=message.from_user.id, text=text)
+            await bot.send_message(chat_id=message.from_user.id, text=text)
+        else:
+            await delete_some_messages(chat_id=message.chat.id, numbers_of_message=[message.message_id])
+            await bot.send_message(chat_id=message.from_user.id, text='В Вашем файле я обнаружил зарплатную таблицу. '
+                                                                      'Вот краткие итоги, чтобы проверить суммы:')
+            await bot.send_message(chat_id=message.from_user.id, text=text)
 
-        await bot.send_message(
-            chat_id=message.from_user.id, text='Готовы разослать эти данные?',
-            reply_markup=make_inline_row_keyboard(["Да, выслать данные"]))
-        # pprint(dict_of_persons)
+            await bot.send_message(
+                chat_id=message.from_user.id, text='Готовы разослать эти данные?',
+                reply_markup=make_inline_rows_keyboard(["Да, выслать данные", "Посмотреть квиток", "Отменить"]))
 
         # TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
-        # TODO сделать словарь глобальной переменной. Прикрутить кнопку "Нет, не готов выслать данные", которая удалит словарь
+        # TODO Прикрутить кнопку "Отменить", которая удалит словарь
 
     else:
         print("Лист не найден")
