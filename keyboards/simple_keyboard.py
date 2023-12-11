@@ -31,3 +31,20 @@ def make_inline_rows_keyboard(items: list[str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def make_inline_many_keys_keyboard(items: list[str]) -> InlineKeyboardMarkup:
+    """
+    Создаёт инлайн-клавиатуру с кнопками в несколько рядов по четыре в ряд
+    :param items: список текстов для кнопок
+    :return: объект реплай-клавиатуры
+    """
+    # Разбиваем список на подсписки по 4 элемента
+    rows = [items[i:i+4] for i in range(0, len(items), 4)]
+
+    keyboard = [[InlineKeyboardButton(
+                    text=str(item),
+                    callback_data=f"view_{str(item)}"
+                                    ) for item in row] for row in rows]
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+

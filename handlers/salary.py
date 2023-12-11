@@ -9,7 +9,7 @@ import openpyxl
 from openpyxl import Workbook
 from openpyxl import load_workbook
 
-from keyboards.simple_keyboard import make_inline_rows_keyboard
+from keyboards.simple_keyboard import make_inline_many_keys_keyboard, make_inline_rows_keyboard
 from states import Registration
 
 router = Router()
@@ -91,8 +91,10 @@ def search_salary_value(target_sheet, base_cell_name=base_column):
 
 def forming_small_results_of_table() -> str:
     global dict_of_persons
-    # Формируем краткий текст для подтверждения заливки руководителем.
-    # В данном случае, в формате: "Фамилия: итог ЗП"
+    """
+    Формирует краткий текст для подтверждения заливки руководителем.
+    В данном случае, в формате: "Фамилия: итог ЗП"
+    """
     text = ''
     for person_no in dict_of_persons:
 
@@ -110,17 +112,51 @@ def forming_small_results_of_table() -> str:
 
 @router.callback_query(F.data.in_(["Посмотреть квиток"]))
 async def select_an_employee(callback: CallbackQuery) -> None:
+    await callback.answer()
     global dict_of_persons
-    keys = list(dict_of_persons)
+    names = [(dict_of_persons[person_no]["Ф.И.О."]).split(' ')[0] for person_no in dict_of_persons]
+
     await callback.message.answer(
-        text='Выберите код сотрудника',
-        reply_markup=make_inline_rows_keyboard(keys)
+        text='Выберите сотрудника',
+        reply_markup=make_inline_many_keys_keyboard(names)
     )
 
 
-@router.callback_query(F.data.in_([""]))
-async def forming_results_for_one_employee():
-    pass
+@router.callback_query(F.data.startswith("view_"))
+async def forming_results_for_one_employee(callback: CallbackQuery):
+    await callback.answer()
+    _, last_name = callback.data.split('_')
+    await callback.message.answer(text=f'Получен запрос на квиток для {last_name}')
+
+    output_order_one = ['Ф.И.О.', 'Должность']
+    output_order_two = ['Итог З/П', 'Итог мотивация', 'Итог З\\П+Бонус']
+    output_order_three = ["Премия(компенсация отпуска)", "Вычеты ОС(форма/прочее)",
+                          "Вычеты ОС(Инвентаризация)", 'Вычеты-штрафы', 'Дополнительные работы Н/Ч']
+    output_order_four = ['Кол-во ошибок (примечание)', 'Сумма ошибки']
+    output_order_five = ['Факт часы', 'Единый коэфф.', 'Выдача ', 'Доставки(Подготовка отгрузок)',
+                         'Приемка', 'Размещение', 'Объем М3 кросс.', 'Сборка отгрузок']
+
+    composed_text = ""
+    for emp_id, emp_info in dict_of_persons.items():
+        if emp_info.get('Ф.И.О.').split(' ')[0] == last_name:
+            composed_text += f"\nКод сотрудника:\t{emp_id}:\n"
+            for value in output_order_one:
+                composed_text += f"{value}:\t{dict_of_persons[emp_id][value]}\n"
+            composed_text += "-" * 50 + "\n"
+            composed_text += f"ИТОГ ЗП:\t{dict_of_persons[emp_id][output_order_two[2]]} руб. ({dict_of_persons[emp_id][output_order_two[0]]} руб. + {dict_of_persons[emp_id][output_order_two[1]]} руб.)\n"
+            composed_text += "-" * 50 + "\n"
+            for value in output_order_three:
+                composed_text += f"{value}:\t{dict_of_persons[emp_id][value]} руб.\n"
+            composed_text += "-" * 50 + "\n"
+            composed_text += f"Кол-во ошибок:\t{dict_of_persons[emp_id][output_order_four[0]]} (-{dict_of_persons[emp_id][output_order_four[1]]} руб.)\n"
+            composed_text += "-" * 50 + "\n"
+            for value in output_order_five:
+                composed_text += f"{value}:\t{dict_of_persons[emp_id][value]}\n"
+
+            break  # Прекращаем цикл, так как нашли нужного сотрудника
+
+    print(composed_text)
+    await callback.message.answer(text=composed_text)
 
 
 def search_values_of_one_target_column(base_column_head, target_sheet, target_column_name) -> None:
@@ -188,6 +224,8 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
 # TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
 # TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
 
+# При подтверждении заливки данных, все сообщения с общими суммами и квитками должны удаляться
+
 
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document):
@@ -236,7 +274,7 @@ async def handle_excel_file(message: types.Document):
                 reply_markup=make_inline_rows_keyboard(["Да, выслать данные", "Посмотреть квиток", "Отменить"]))
 
         # TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
-        # TODO Прикрутить кнопку "Отменить", которая удалит словарь
+        # TODO Прикрутить кнопку "Отменить", которая удалит словарь и все помеченные для удаления сообщения
 
     else:
         print("Лист не найден")
