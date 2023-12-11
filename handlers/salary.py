@@ -139,19 +139,30 @@ async def forming_results_for_one_employee(callback: CallbackQuery):
     composed_text = ""
     for emp_id, emp_info in dict_of_persons.items():
         if emp_info.get('Ф.И.О.').split(' ')[0] == last_name:
-            composed_text += f"\nКод сотрудника:\t{emp_id}:\n"
+            composed_text += f"\nКод сотрудника: {emp_id}:\n"
             for value in output_order_one:
-                composed_text += f"{value}:\t{dict_of_persons[emp_id][value]}\n"
+                composed_text += f"{value}: {dict_of_persons[emp_id][value]}\n"
             composed_text += "-" * 50 + "\n"
-            composed_text += f"ИТОГ ЗП:\t{dict_of_persons[emp_id][output_order_two[2]]} руб. ({dict_of_persons[emp_id][output_order_two[0]]} руб. + {dict_of_persons[emp_id][output_order_two[1]]} руб.)\n"
+            composed_text += f"ИТОГ ЗП: {dict_of_persons[emp_id][output_order_two[2]]} руб. " \
+                             f"(окад {dict_of_persons[emp_id][output_order_two[0]]} руб. + " \
+                             f"премия {dict_of_persons[emp_id][output_order_two[1]]} руб.)\n"
             composed_text += "-" * 50 + "\n"
             for value in output_order_three:
-                composed_text += f"{value}:\t{dict_of_persons[emp_id][value]} руб.\n"
+                if dict_of_persons[emp_id][value] is None:
+                    text = "---"
+                else:
+                    text = f"{dict_of_persons[emp_id][value]} руб."
+                composed_text += f"{value}: {text}\n"
             composed_text += "-" * 50 + "\n"
-            composed_text += f"Кол-во ошибок:\t{dict_of_persons[emp_id][output_order_four[0]]} (-{dict_of_persons[emp_id][output_order_four[1]]} руб.)\n"
+            composed_text += f"Кол-во ошибок: {dict_of_persons[emp_id][output_order_four[0]]} " \
+                             f"(-{dict_of_persons[emp_id][output_order_four[1]]} руб.)\n"
             composed_text += "-" * 50 + "\n"
             for value in output_order_five:
-                composed_text += f"{value}:\t{dict_of_persons[emp_id][value]}\n"
+                if dict_of_persons[emp_id][value] is None:
+                    text = "---"
+                else:
+                    text = f"{dict_of_persons[emp_id][value]}"
+                composed_text += f"{value}: {text}\n"
 
             break  # Прекращаем цикл, так как нашли нужного сотрудника
 
@@ -203,7 +214,10 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
                 # Добавляем значения в словарь
                 if base_colum_value not in dict_of_persons:
                     dict_of_persons[base_colum_value] = {}
-                dict_of_persons[base_colum_value][target_column_name] = cell.value
+                cell_value = cell.value
+                if type(cell_value) is float:
+                    cell_value = round(cell_value, 2)
+                dict_of_persons[base_colum_value][target_column_name] = cell_value
 
     # После полного формирования словаря, обнуляем значения строчных показателей для должностей с нестрочной мотивацией:
     positions_to_reset = ['Начальник склада', 'Заместитель начальника склада', 'Логист-претензионист',
