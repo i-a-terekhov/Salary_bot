@@ -28,6 +28,7 @@ start_row = int(start_cell[1:])
 end_col = openpyxl.utils.column_index_from_string(end_cell[:1])
 end_row = int(end_cell[1:])
 
+# Наименование столбцов, как они указаны в ячейке Excel-файла:
 base_column = "Код."
 target_column_01 = "Должность"
 target_column_02 = "Ф.И.О."
@@ -60,15 +61,19 @@ offset_columns = [target_column_15, target_column_16, target_column_17,
 amount_of_indentation = 12
 
 dict_of_persons = {}
+small_message_for_delete = []  # Собираем id сообщений-квитков для удалений
+start_message_for_delete = []  # Собираем id стартовых сообщений для удаления в случае отмены табеля или его заливки
 
 
-async def delete_some_messages(chat_id: int, numbers_of_message: list[int]):
+async def delete_some_messages(chat_id: int, numbers_of_message: list[int]) -> None:
+    """Функция удаления сообщений в чате по message_id"""
     for num in numbers_of_message:
         await bot.delete_message(chat_id=chat_id, message_id=num)
 
 
-def search_salary_value(target_sheet, base_cell_name=base_column):
-    global dict_of_persons
+def search_salary_value(target_sheet, base_cell_name=base_column) -> None:
+    """Функция создания и заполнения global dict_of_persons на основании данных в переданном листе target_sheet"""
+    global dict_of_persons, base_column, target_columns
     # Ищем базовую ячейку (шапку базового столбца) в диапазоне start_cell:end_cell
     head_of_base_column = None
     for row in target_sheet.iter_rows(min_row=start_row, max_row=end_row, min_col=start_col, max_col=end_col):
@@ -81,20 +86,31 @@ def search_salary_value(target_sheet, base_cell_name=base_column):
     # Если базовая ячейка (шапка базового столбца) найдена, считаем, что найден лист с таблицей, ищем целевые столбцы:
     if target_sheet:
         dict_of_persons = {}
-
+        # Для каждого целевого столбца запускаем функцию переноса значений целевого столбца в global dict_of_persons
         for target in target_columns:
             search_values_of_one_target_column(
                 base_column_head=head_of_base_column, target_sheet=target_sheet,
                 target_column_name=target
             )
 
+    # После полного формирования словаря, обнуляем значения строчных показателей для должностей с нестрочной мотивацией:
+    positions_to_reset = ['Начальник склада', 'Заместитель начальника склада', 'Логист-претензионист',
+                          'Супервизор', 'Старший кладовщик', 'Диспетчер', 'Старший оператор склада', 'Оператор склада']
+    keys_to_reset = ['Выдача ', 'Доставки(Подготовка отгрузок)', 'Приемка', 'Размещение', 'Объем М3 кросс.',
+                     'Сборка отгрузок']
+    for key, data in dict_of_persons.items():
+        position = data.get('Должность', '')
+        if position in positions_to_reset:
+            for key_to_reset in keys_to_reset:
+                data[key_to_reset] = None
+
 
 def forming_small_results_of_table() -> str:
-    global dict_of_persons
     """
     Формирует краткий текст для подтверждения заливки руководителем.
     В данном случае, в формате: "Фамилия: итог ЗП"
     """
+    global dict_of_persons
     text = ''
     for person_no in dict_of_persons:
 
@@ -106,58 +122,94 @@ def forming_small_results_of_table() -> str:
         summ = dict_of_persons[person_no][target_column_05]
 
         text += f'{surname}{summ:_} руб.\n'
-    print(text)
     return text
 
 
 @router.callback_query(F.data.in_(["Посмотреть квиток"]))
 async def select_an_employee(callback: CallbackQuery) -> None:
+    """Функция вывода клавиатуры с сотрудниками, находящимися на данный момент в global dict_of_persons
+    Клавиатура предполагает генерацию калбеков, перехватываемых функцией forming_results_for_one_employee"""
+    global small_message_for_delete
+
     await callback.answer()
     global dict_of_persons
-    names = [(dict_of_persons[person_no]["Ф.И.О."]).split(' ')[0] for person_no in dict_of_persons]
+    # Формируем лист с "Фамилия И(мя)" для каждого в global dict_of_persons
+    names = [
+        (
+                (dict_of_persons[emp_no]["Ф.И.О."]).split(' ')[0]
+                + " " +
+                (dict_of_persons[emp_no]["Ф.И.О."]).split(' ')[1][:1]
+        )
+        for emp_no in dict_of_persons]
 
-    await callback.message.answer(
+    # Удаляем предыдущие сообщения о квитках
+    await delete_some_messages(chat_id=callback.from_user.id, numbers_of_message=small_message_for_delete)
+    small_message_for_delete = []
+
+    # Формируем объект message в переменную для извлечения message_id и вывода списка сотрудников
+    message = await callback.message.answer(
         text='Выберите сотрудника',
         reply_markup=make_inline_many_keys_keyboard(names)
     )
+    small_message_for_delete.append(message.message_id)
 
 
 @router.callback_query(F.data.startswith("view_"))
 async def forming_results_for_one_employee(callback: CallbackQuery):
+    """Функция формирования из global dict_of_persons квитка для сотрудника, чья фамилия перехвачена в калбеке"""
     await callback.answer()
-    _, last_name = callback.data.split('_')
-    await callback.message.answer(text=f'Получен запрос на квиток для {last_name}')
+    global dict_of_persons, small_message_for_delete
 
+    # Из каллбека извлекаем "Фамилия И(мя)":
+    _, last_name = callback.data.split('_')
+
+    # Задание тематических блоков и порядка в котором будут представлены данные:
     output_order_one = ['Ф.И.О.', 'Должность']
     output_order_two = ['Итог З/П', 'Итог мотивация', 'Итог З\\П+Бонус']
     output_order_three = ["Премия(компенсация отпуска)", "Вычеты ОС(форма/прочее)",
                           "Вычеты ОС(Инвентаризация)", 'Вычеты-штрафы', 'Дополнительные работы Н/Ч']
     output_order_four = ['Кол-во ошибок (примечание)', 'Сумма ошибки']
-    output_order_five = ['Факт часы', 'Единый коэфф.', 'Выдача ', 'Доставки(Подготовка отгрузок)',
-                         'Приемка', 'Размещение', 'Объем М3 кросс.', 'Сборка отгрузок']
+    output_order_five = ['Факт часы', 'Единый коэфф.']
+    output_order_six = ['Выдача ', 'Доставки(Подготовка отгрузок)',
+                        'Приемка', 'Размещение', 'Объем М3 кросс.', 'Сборка отгрузок']
 
     composed_text = ""
     for emp_id, emp_info in dict_of_persons.items():
-        if emp_info.get('Ф.И.О.').split(' ')[0] == last_name:
-            composed_text += f"\nКод сотрудника: {emp_id}:\n"
+        if (emp_info.get('Ф.И.О.').split(' ')[0] + " " + emp_info.get('Ф.И.О.').split(' ')[1][:1]) == last_name:
+
+            composed_text += f"\nКод сотрудника: {emp_id}\n"
             for value in output_order_one:
                 composed_text += f"{value}: {dict_of_persons[emp_id][value]}\n"
-            composed_text += "-" * 50 + "\n"
-            composed_text += f"ИТОГ ЗП: {dict_of_persons[emp_id][output_order_two[2]]} руб. " \
-                             f"(окад {dict_of_persons[emp_id][output_order_two[0]]} руб. + " \
-                             f"премия {dict_of_persons[emp_id][output_order_two[1]]} руб.)\n"
-            composed_text += "-" * 50 + "\n"
+            composed_text += "-" * 45 + "\n"
+            composed_text += f"ИТОГ ЗП: {dict_of_persons[emp_id][output_order_two[2]]} руб.\n"\
+                             f"Оклад: {dict_of_persons[emp_id][output_order_two[0]]} руб.\n" \
+                             f"Премия: {dict_of_persons[emp_id][output_order_two[1]]} руб.\n"
+            composed_text += "-" * 45 + "\n"
+
             for value in output_order_three:
                 if dict_of_persons[emp_id][value] is None:
                     text = "---"
                 else:
                     text = f"{dict_of_persons[emp_id][value]} руб."
                 composed_text += f"{value}: {text}\n"
-            composed_text += "-" * 50 + "\n"
-            composed_text += f"Кол-во ошибок: {dict_of_persons[emp_id][output_order_four[0]]} " \
-                             f"(-{dict_of_persons[emp_id][output_order_four[1]]} руб.)\n"
-            composed_text += "-" * 50 + "\n"
+            composed_text += "-" * 45 + "\n"
+
+            if dict_of_persons[emp_id][output_order_four[0]] is None:
+                composed_text += "Кол-во ошибок: ---\n"
+            else:
+                composed_text += f"Кол-во ошибок: {dict_of_persons[emp_id][output_order_four[0]]} " \
+                                 f"(-{dict_of_persons[emp_id][output_order_four[1]]} руб.)\n"
+            composed_text += "-" * 45 + "\n"
+
             for value in output_order_five:
+                if dict_of_persons[emp_id][value] is None:
+                    text = "---"
+                else:
+                    text = f"{dict_of_persons[emp_id][value]}"
+                composed_text += f"{value}: {text}\n"
+            composed_text += "-" * 45 + "\n"
+
+            for value in output_order_six:
                 if dict_of_persons[emp_id][value] is None:
                     text = "---"
                 else:
@@ -166,17 +218,25 @@ async def forming_results_for_one_employee(callback: CallbackQuery):
 
             break  # Прекращаем цикл, так как нашли нужного сотрудника
 
-    print(composed_text)
-    await callback.message.answer(text=composed_text)
+    # Удаляем предыдущий квиток, если он был:
+    await delete_some_messages(chat_id=callback.from_user.id, numbers_of_message=small_message_for_delete)
+    small_message_for_delete = []
+
+    # Формируем объект message в переменную для извлечения message_id и вывода квитка
+    message = await callback.message.answer(
+        text=composed_text,
+        reply_markup=make_inline_rows_keyboard(["Выслать данные сотрудникам", "Посмотреть квиток", "Отменить"]))
+    small_message_for_delete.append(message.message_id)
 
 
 def search_values_of_one_target_column(base_column_head, target_sheet, target_column_name) -> None:
+    """Функция извлечения данных из одного целевого столбца напротив непустых значений базового столбца (аналог ВПР)"""
     global dict_of_persons
     # Ищем целевой столбец.
     # Например, если базовый - "ID юзера", то целевым может быть - "Показатель" юзера по какому-то критерию
     target_column = None
     if base_column_head:
-        # Проходим по ряду, в котором находятся истинные заголовки (строка 39:
+        # Проходим по ряду, в котором находятся истинные заголовки (строка 39):
         for col in target_sheet.iter_cols(min_row=39, max_row=39,
                                           min_col=base_column_head.column, max_col=target_sheet.max_column):
 
@@ -191,7 +251,7 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
                     else:
                         det = 0
 
-                    # Проходим по строкам столбца col, добавляя каждую ячейку в target_column
+                    # Проходим по строкам столбца col, добавляя каждую ячейку в кортеж target_column
                     target_column = tuple()
                     for cell_in_targ_col in target_sheet.iter_cols(min_row=base_column_head.row,
                                                                    max_row=target_sheet.max_row,
@@ -219,17 +279,6 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
                     cell_value = round(cell_value, 2)
                 dict_of_persons[base_colum_value][target_column_name] = cell_value
 
-    # После полного формирования словаря, обнуляем значения строчных показателей для должностей с нестрочной мотивацией:
-    positions_to_reset = ['Начальник склада', 'Заместитель начальника склада', 'Логист-претензионист',
-                          'Супервизор', 'Старший кладовщик', 'Диспетчер', 'Старший оператор склада', 'Оператор склада']
-    keys_to_reset = ['Выдача ', 'Доставки(Подготовка отгрузок)', 'Приемка', 'Размещение', 'Объем М3 кросс.',
-                     'Сборка отгрузок']
-    for key, data in dict_of_persons.items():
-        position = data.get('Должность', '')
-        if position in positions_to_reset:
-            for key_to_reset in keys_to_reset:
-                data[key_to_reset] = None
-
 
 # Когда руководитель подтверждает суммы, бот просит его придумать пароль для этой конкретной заливки
 # TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
@@ -242,10 +291,12 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
 
 
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
-async def handle_excel_file(message: types.Document):
+async def handle_excel_file(message: types.Document) -> None:
+    """Функция анализа пойманного файла. При успешном результате выводятся краткие итоги по ЗП"""
+    global start_message_for_delete
     # Оповещение
-    text = f'Юзер {message.from_user.id} прислал зарплатную ведомость'
-    print(text)
+    # text = f'Юзер {message.from_user.id} прислал зарплатную ведомость'
+    # print(text)
     # await bot.send_document(chat_id=OWNER_CHAT_ID, document=message.document.file_id, caption=message.caption)
 
     # Получаем информацию о файле
@@ -273,19 +324,28 @@ async def handle_excel_file(message: types.Document):
     if target_sheet:
         # Используем target_sheet для дальнейших действий
         search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
-        text = forming_small_results_of_table()
-        if not text:
-            text = 'Ничего не найдено'
-            await bot.send_message(chat_id=message.from_user.id, text=text)
+        small_results = forming_small_results_of_table()
+        if not small_results:
+            small_results = 'Ничего не найдено'
+            message_for_del = await bot.send_message(chat_id=message.from_user.id, text=small_results)
+            start_message_for_delete.append(message_for_del.message_id)
         else:
             await delete_some_messages(chat_id=message.chat.id, numbers_of_message=[message.message_id])
-            await bot.send_message(chat_id=message.from_user.id, text='В Вашем файле я обнаружил зарплатную таблицу. '
-                                                                      'Вот краткие итоги, чтобы проверить суммы:')
-            await bot.send_message(chat_id=message.from_user.id, text=text)
 
-            await bot.send_message(
-                chat_id=message.from_user.id, text='Готовы разослать эти данные?',
-                reply_markup=make_inline_rows_keyboard(["Да, выслать данные", "Посмотреть квиток", "Отменить"]))
+            message_for_del = await bot.send_message(
+                chat_id=message.from_user.id,
+                text='В Вашем файле я обнаружил зарплатную таблицу.\nПроверьте итоговые суммы:')
+            start_message_for_delete.append(message_for_del.message_id)
+
+            message_for_del = await bot.send_message(chat_id=message.from_user.id, text=small_results)
+            start_message_for_delete.append(message_for_del.message_id)
+
+            message = await bot.send_message(
+                chat_id=message.from_user.id,
+                text='Вы можете посмотреть как будут выглядеть квитки для сотрудников.\n'
+                     'После утверждения табеля к рассылке, просмотр квитков будет недоступен.',
+                reply_markup=make_inline_rows_keyboard(["Выслать данные сотрудникам", "Посмотреть квиток", "Отменить"]))
+            small_message_for_delete.append(message.message_id)
 
         # TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
         # TODO Прикрутить кнопку "Отменить", которая удалит словарь и все помеченные для удаления сообщения
