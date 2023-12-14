@@ -1,9 +1,11 @@
 from pprint import pprint
 
 from aiogram import Bot, Router, F, types
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
 from hidden.tokenfile import TOKEN_FOUR, OWNER_CHAT_ID
+from states import BossHere
 
 import openpyxl
 from openpyxl import Workbook
@@ -355,6 +357,19 @@ async def handle_excel_file(message: types.Document) -> None:
 
     # Закрываем скачанный файл
     wb.close()
+
+
+@router.callback_query(F.data.startswith("Выслать данные сотрудникам"))
+async def starting_to_create_password_report(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(BossHere.creating_a_secret_code)
+    await callback.message.answer(text='Придумайте пароль для этой заливки. Зарегистрированные сотрудники '
+                                       'смогут посмотреть свой квиток только по этому паролю. Каждая заливка'
+                                       'должна иметь уникальный пароль.')
+    await callback.message.answer(text='После установки пароля, данные о сотрудниках сохранятся на сервере, а Вам будет'
+                                       'доступен функционал генерации "Секретных кодов сотрудников", которые необходимы'
+                                       'для регистрации сотрудников в боте.')
+    await callback.message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
+
 
 # По файлу должны быть новые данные, т.к. изменилась структура
         # TODO необходима функция "выслать информацию", когда босс заливает ЗП, всем зарегистрированным должно придти уведомление
