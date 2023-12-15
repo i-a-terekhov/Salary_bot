@@ -44,6 +44,10 @@ async def restoring_state_from_database(message: Message, state: FSMContext):
         elif name_of_current_state == 'employee_is_banned':
             await employee_is_banned(message=message)
 
+    # if name_of_current_state == 'employee_is_registered' and F.document.file_name.endswith('.xlsx'):
+    #     await handle_excel_file(message=message)
+
+
         #TODO добавить обработку при получении файла: если employee_is_registered, принимаем файл.
 
 

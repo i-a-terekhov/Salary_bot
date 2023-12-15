@@ -1,4 +1,6 @@
 from pprint import pprint
+import re
+from datetime import datetime
 
 from aiogram import Bot, Router, F, types
 from aiogram.fsm.context import FSMContext
@@ -361,14 +363,43 @@ async def handle_excel_file(message: types.Document) -> None:
 
 @router.callback_query(F.data.startswith("Выслать данные сотрудникам"))
 async def starting_to_create_password_report(callback: CallbackQuery, state: FSMContext):
+    # Этот статус не сохраняется в БД, т.к. при перезагрузке бота потеряются данные из global dict_of_persons
     await state.set_state(BossHere.creating_a_secret_code)
-    await callback.message.answer(text='Придумайте пароль для этой заливки. Зарегистрированные сотрудники '
-                                       'смогут посмотреть свой квиток только по этому паролю. Каждая заливка'
-                                       'должна иметь уникальный пароль.')
-    await callback.message.answer(text='После установки пароля, данные о сотрудниках сохранятся на сервере, а Вам будет'
-                                       'доступен функционал генерации "Секретных кодов сотрудников", которые необходимы'
-                                       'для регистрации сотрудников в боте.')
+
+    await callback.message.answer(text='Придумайте пароль для этой заливки. Каждая заливка '
+                                       'должна иметь уникальный пароль.\n'
+                                       'Зарегистрированные сотрудники смогут посмотреть свой квиток '
+                                       'только по этому паролю.')
+    await callback.message.answer(text='После установки пароля, данные о сотрудниках будут сохранены на сервере, '
+                                       'а Вам откроется функционал генерации "Секретных кодов сотрудников", '
+                                       'которые необходимы для регистрации сотрудников в боте.')
+                                        # "Функционал генерации" будет доступен из таблицы салари, где напротив каждой
+                                        # записи будет значение кода руководителя - для формирования таблицы сотрудников
+                                        # для которых конкретному руководителю доступна "генерация"
     await callback.message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
+
+
+def _check_salary_password(user_input: str) -> str | bool:
+    password_pattern = re.compile(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{7,10}$')
+
+    if password_pattern.match(user_input):
+        return user_input
+    else:
+        return False
+
+
+@router.message(BossHere.creating_a_secret_code)
+async def password_entry_processing(message: Message, state: FSMContext):
+    password = _check_salary_password(message.text)
+    if password:
+        current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
+        await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {message.text}")
+        # Сбрасываем статус
+        await state.set_state(Registration.employee_is_registered)
+    else:
+        await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
+        await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
+
 
 
 # По файлу должны быть новые данные, т.к. изменилась структура
