@@ -6,7 +6,7 @@ DATABASE_REG_NAME = 'database/bd.sql'
 TABLE_NAME = 'users'
 REGISTRATION_TABLE = ('telegram_id', 'telegram_username', 'state_in_bot',
                       'employee_code', 'secret_employee_code', 'registration_attempts')
-SALARY_TABLE = ('employee_code', 'secret_salary_code', 'author_of_entry', '')
+# SALARY_TABLE = ('employee_code', 'secret_salary_code', 'author_of_entry', '')
 
 
 def open_connection(db_name: str = DATABASE_REG_NAME, name_of_columns: Tuple[str] = REGISTRATION_TABLE) -> Connection:
