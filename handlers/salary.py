@@ -8,6 +8,7 @@ from aiogram.types import Message, CallbackQuery
 
 from hidden.tokenfile import TOKEN_FOUR, OWNER_CHAT_ID
 from states import BossHere
+from database.db_salary import insert_user_to_database
 
 import openpyxl
 from openpyxl import Workbook
@@ -293,7 +294,7 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
 
 # При подтверждении заливки данных, все сообщения с общими суммами и квитками должны удаляться
 
-
+# TODO добавить подфункцию проверки статуса юзера, приславшего файл из базы. Если сатус employee_is_registered - принимаем файл
 @router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
 async def handle_excel_file(message: types.Document) -> None:
     """Функция анализа пойманного файла. При успешном результате выводятся краткие итоги по ЗП"""
@@ -394,8 +395,10 @@ async def password_entry_processing(message: Message, state: FSMContext):
     if password:
         current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
         await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {message.text}")
+        insert_user_to_database(dict_of_persons)
         # Сбрасываем статус
         await state.set_state(Registration.employee_is_registered)
+        print(dict_of_persons)
     else:
         await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
         await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
