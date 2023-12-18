@@ -94,6 +94,7 @@ start_message_for_delete = []  # Собираем id стартовых сооб
 
 async def delete_some_messages(chat_id: int, numbers_of_message: list[int]) -> None:
     """Функция удаления сообщений в чате по message_id"""
+    """Не забудь присвоить пустой список переменной, в случае передачи в эту функцию глобального списка"""
     for num in numbers_of_message:
         await bot.delete_message(chat_id=chat_id, message_id=num)
 
@@ -395,17 +396,25 @@ async def starting_to_create_password_report(callback: CallbackQuery, state: FSM
     # Этот статус не сохраняется в БД, т.к. при перезагрузке бота потеряются данные из global dict_of_persons
     await state.set_state(BossHere.creating_a_secret_code)
 
-    await callback.message.answer(text='Придумайте пароль для этой заливки. Каждая заливка '
+    message_for_del = await callback.message.answer(text='Придумайте пароль для этой заливки. Каждая заливка '
                                        'должна иметь уникальный пароль.\n'
                                        'Зарегистрированные сотрудники смогут посмотреть свой квиток '
                                        'только по этому паролю.')
-    await callback.message.answer(text='После установки пароля, данные о сотрудниках будут сохранены на сервере, '
-                                       'а Вам откроется функционал генерации "Секретных кодов сотрудников", '
-                                       'которые необходимы для регистрации сотрудников в боте.')
-                                        # "Функционал генерации" будет доступен из таблицы салари, где напротив каждой
-                                        # записи будет значение кода руководителя - для формирования таблицы сотрудников
-                                        # для которых конкретному руководителю доступна "генерация"
-    await callback.message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
+    small_message_for_delete.append(message_for_del.message_id)
+
+    message_for_del = await callback.message.answer(text='После установки пароля, данные о сотрудниках будут сохранены '
+                                                         'на сервере, а Вам откроется функционал генерации "Секретных '
+                                                         'кодов сотрудников", которые необходимы для регистрации '
+                                                         'сотрудников в боте.')
+    # "Функционал генерации" будет доступен из таблицы салари, где напротив каждой
+    # записи будет значение кода руководителя - для формирования таблицы сотрудников
+    # для которых конкретному руководителю доступна "генерация"
+    small_message_for_delete.append(message_for_del.message_id)
+
+    message_for_del = await callback.message.answer(
+        text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов'
+    )
+    small_message_for_delete.append(message_for_del.message_id)
 
 
 def _check_salary_password(user_input: str) -> str | bool:
@@ -422,6 +431,8 @@ def _check_salary_password(user_input: str) -> str | bool:
 async def password_entry_processing(message: Message, state: FSMContext):
     """В случае корректности пароля, функция формирует dict_of_filling этой конкретной заливки
      и вместе с dict_of_persons передает в функцию insert_dict_of_persons_to_database"""
+    global start_message_for_delete, small_message_for_delete
+
     password = _check_salary_password(message.text)
     if password:
         current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
@@ -433,6 +444,10 @@ async def password_entry_processing(message: Message, state: FSMContext):
         insert_dict_of_persons_to_database(dict_of_persons, dict_of_filling)
         # Сбрасываем статус
         await state.set_state(Registration.employee_is_registered)
+        await delete_some_messages(chat_id=message.chat.id, numbers_of_message=small_message_for_delete)
+        small_message_for_delete = []
+        await delete_some_messages(chat_id=message.chat.id, numbers_of_message=start_message_for_delete)
+        start_message_for_delete = []
     else:
         await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
         await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
