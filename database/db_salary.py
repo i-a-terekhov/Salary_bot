@@ -10,10 +10,10 @@ SALARY_TABLE = ('Report_card_date', 'author_of_entry', 'available_to_supervisor'
                 'available_to_employee', 'secret_employee_code', 'employee_code', 'Position', 'Full_name',
                 # Доступно сотруднику,  Секретный код сотрудника, Код сотрудника,   Должность,    Ф.И.О.,
 
-                'Salary_total', 'Total_motivation', 'Salary_total_plus_Bonus', 'Bonus_(vacation_compensation)',
+                'Salary_total', 'Total_motivation', 'Salary_total_plus_Bonus', 'Bonus_vacation_compensation',
                 # Итог З/П,     Итог мотивация,     Итог З\П+Бонус,             Премия(компенсация отпуска),
 
-                'Deductions_of_fixed_assets_(form/other)', 'OS_Deductions_(Inventory)', 'Deductions-penalties',
+                'Deductions_of_fixed_assets_form_other', 'OS_Deductions_Inventory', 'Deductions_penalties',
                 # Вычеты ОС(форма/прочее),                  Вычеты ОС(Инвентаризация),      Вычеты-штрафы
 
                 'Actual_hours_worked', 'Number_of_errors', 'Error_amount', 'Single_output_coefficient',
@@ -26,6 +26,30 @@ SALARY_TABLE = ('Report_card_date', 'author_of_entry', 'available_to_supervisor'
                 # Размещение,           Объем М3 кросс.,    Сборка отгрузок
                 )
 
+TRANSLATE_DICT = {
+    'Код.': 'Employee_code',
+    'Должность': 'Position',
+    'Ф.И.О.': 'Full_name',
+    'Итог З/П': 'Salary_total',
+    'Итог мотивация': 'Total_motivation',
+    'Итог З\П+Бонус': 'Salary_total_plus_Bonus',
+    'Премия(компенсация отпуска)': 'Bonus_vacation_compensation',
+    'Вычеты ОС(форма/прочее)': 'Deductions_of_fixed_assets_form_other',
+    'Вычеты ОС(Инвентаризация)': 'OS_Deductions_Inventory',
+    'Вычеты-штрафы': 'Deductions_penalties',
+    'Факт часы': 'Actual_hours_worked',
+    'Кол-во ошибок (примечание)': 'Number_of_errors',
+    'Сумма ошибки': 'Error_amount',
+    'Единый коэфф.': 'Single_output_coefficient',
+    'Дополнительные работы Н/Ч': 'Additional_work',
+    'Выдача ': 'Points_of_given_out',
+    'Доставки(Подготовка отгрузок)': 'Delivery_Points',
+    'Приемка': 'Acceptance_Points',
+    'Размещение': 'Placement_Points',
+    'Объем М3 кросс.': 'Volume_M3_cross',
+    'Сборка отгрузок': 'Shipment_Assembly_Points'
+}
+
 
 def open_connection(db_name: str = DATABASE_REG_NAME, name_of_columns: Tuple[str] = SALARY_TABLE) -> Connection:
     # Открываем или создаем базу данных
@@ -36,13 +60,11 @@ def open_connection(db_name: str = DATABASE_REG_NAME, name_of_columns: Tuple[str
     columns_str = ', '.join([f"{column} TEXT" for column in name_of_columns])
 
     # Создаем таблицу с динамически формированными столбцами
-    create_table_query = '''
-        CREATE TABLE IF NOT EXISTS {} (
-            {}
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+            {columns_str}
         )
-    '''.format(TABLE_NAME, columns_str)
-
-    cursor.execute(create_table_query)
+    ''')
     return connect
 
 
@@ -78,20 +100,32 @@ def test_connection(required_columns: Tuple[str] = SALARY_TABLE) -> bool:
         return False
 
 
-def insert_user_to_database(user_data: dict) -> bool:
+def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: dict) -> bool:
+    """Функция принимает два словаря: dict_of_persons с данными по сотрудникам и dict_of_filling с данными по заливке"""
     connect = open_connection()
     cursor = connect.cursor()
 
     try:
-        # Вставляем новую запись
-        insert_query = f'INSERT INTO {TABLE_NAME} (' + ', '.join(user_data.keys()) + ') VALUES (' + ', '.join(['?'] * len(user_data)) + ')'
-        cursor.execute(insert_query, tuple(user_data.values()))
-        connect.commit()
-        print(f"Пользователь {user_data['telegram_id']}: данные успешно записаны в БД")
-        display_all_data()
+        for user_id in dict_of_persons:
+            # Вставляем новую запись
+            filling_str = ', '.join(dict_of_filling.keys())
+            filling_val = ', '.join(['?' for _ in dict_of_filling])
+
+            columns_str = ', '.join(dict_of_persons[user_id].keys()) + filling_str
+            values_str = ', '.join(['?' for _ in dict_of_persons[user_id]]) + filling_str
+            for ru_name in TRANSLATE_DICT:
+                # print(f'Ищем {ru_name} в строке {columns_str}')
+                columns_str = columns_str.replace(ru_name, TRANSLATE_DICT[ru_name])
+
+            insert_query = f'INSERT INTO {TABLE_NAME} ({columns_str}) VALUES ({values_str})'
+            cursor.execute(insert_query, tuple(str(value) for value in dict_of_persons[user_id].values()))
+            # print(f'Данные юзера {user_id} занесены в БД')
+            connect.commit()
+        print(f"Все данные из словаря dict_of_persons успешно записаны в БД")
+        # display_all_data()
         successful_insert = True
     except Exception as e:
-        print(f"Ошибка при вставке пользователя в БД: {e}")
+        print(f"Ошибка при вставке данных в БД: {e}")
         successful_insert = False
 
     # Фиксируем изменения и закрываем соединение
@@ -99,7 +133,6 @@ def insert_user_to_database(user_data: dict) -> bool:
     return successful_insert
 
 
-#TODO функция не работает
 def update_data_in_column(telegram_id: str, column: str, value: str) -> None:
     connect = open_connection()
     cursor = connect.cursor()

@@ -1,4 +1,3 @@
-from pprint import pprint
 import re
 from datetime import datetime
 
@@ -6,13 +5,11 @@ from aiogram import Bot, Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
-from hidden.tokenfile import TOKEN_FOUR, OWNER_CHAT_ID
+from hidden.tokenfile import TOKEN_FOUR
 from states import BossHere
-from database.db_salary import insert_user_to_database
+from database.db_salary import insert_dict_of_persons_to_database, test_connection, open_connection, close_connection
 
 import openpyxl
-from openpyxl import Workbook
-from openpyxl import load_workbook
 
 from keyboards.simple_keyboard import make_inline_many_keys_keyboard, make_inline_rows_keyboard
 from states import Registration
@@ -56,7 +53,32 @@ target_column_18 = 'Размещение'
 target_column_19 = 'Объем М3 кросс.'
 target_column_20 = 'Сборка отгрузок'
 
-target_columns = [target_column_01, target_column_02, target_column_03, target_column_04, target_column_05,
+# Возможный будущий формат хранения имен целевых столбцов:
+# another_name = {
+#     base_column: ["Код."],
+#     target_column_01: ["Должность"],
+#     target_column_02: ["Ф.И.О."],
+#     target_column_03: ["Итог З/П"],  # Оклад
+#     target_column_04: ["Итог мотивация"],  # Премия
+#     target_column_05: ["Итог З\П+Бонус"],  # Всего
+#     target_column_06: ["Премия(компенсация отпуска)"],
+#     target_column_07: ["Вычеты ОС(форма/прочее)"],
+#     target_column_08: ["Вычеты ОС(Инвентаризация)"],
+#     target_column_09: ['Вычеты-штрафы'],
+#     target_column_10: ['Факт часы'],
+#     target_column_11: ['Кол-во ошибок (примечание)'],
+#     target_column_12: ['Сумма ошибки'],
+#     target_column_13: ['Единый коэфф.'],
+#     target_column_14: ['Дополнительные работы Н/Ч'],
+#     target_column_15: ['Выдача '],
+#     target_column_16: ['Доставки(Подготовка отгрузок)'],
+#     target_column_17: ['Приемка'],
+#     target_column_18: ['Размещение'],
+#     target_column_19: ['Объем М3 кросс.'],
+#     target_column_20: ['Сборка отгрузок'],
+# }
+
+target_columns = [base_column, target_column_01, target_column_02, target_column_03, target_column_04, target_column_05,
                   target_column_06, target_column_07, target_column_08, target_column_09, target_column_10,
                   target_column_11, target_column_12, target_column_13, target_column_14, target_column_15,
                   target_column_16, target_column_17, target_column_18, target_column_19, target_column_20]
@@ -65,7 +87,7 @@ offset_columns = [target_column_15, target_column_16, target_column_17,
                   target_column_18, target_column_19, target_column_20]
 amount_of_indentation = 12
 
-dict_of_persons = {}
+dict_of_persons = {}  # Глобальный словарь для формирования заливки
 small_message_for_delete = []  # Собираем id сообщений-квитков для удалений
 start_message_for_delete = []  # Собираем id стартовых сообщений для удаления в случае отмены табеля или его заливки
 
@@ -98,6 +120,10 @@ def search_salary_value(target_sheet, base_cell_name=base_column) -> None:
                 target_column_name=target
             )
 
+    # Добавляем значения базового столбца внутрь словаря
+    for emp_no in dict_of_persons:
+        dict_of_persons[emp_no][base_column] = emp_no
+
     # После полного формирования словаря, обнуляем значения строчных показателей для должностей с нестрочной мотивацией:
     positions_to_reset = ['Начальник склада', 'Заместитель начальника склада', 'Логист-претензионист',
                           'Супервизор', 'Старший кладовщик', 'Диспетчер', 'Старший оператор склада', 'Оператор склада']
@@ -122,11 +148,12 @@ def forming_small_results_of_table() -> str:
         surname = str(dict_of_persons[person_no]["Ф.И.О."]).split(' ')[0]
         if len(surname) < 15:
             extra_space = 15 - len(surname)
-            surname += ' ' * extra_space
+            surname += '  ' * extra_space
 
         summ = dict_of_persons[person_no][target_column_05]
+        emp_no = dict_of_persons[person_no][base_column]
 
-        text += f'{surname}{summ:_} руб.\n'
+        text += f'{emp_no} {surname}{summ:_} руб.\n'
     return text
 
 
@@ -364,6 +391,7 @@ async def handle_excel_file(message: types.Document) -> None:
 
 @router.callback_query(F.data.startswith("Выслать данные сотрудникам"))
 async def starting_to_create_password_report(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
     # Этот статус не сохраняется в БД, т.к. при перезагрузке бота потеряются данные из global dict_of_persons
     await state.set_state(BossHere.creating_a_secret_code)
 
@@ -391,14 +419,20 @@ def _check_salary_password(user_input: str) -> str | bool:
 
 @router.message(BossHere.creating_a_secret_code)
 async def password_entry_processing(message: Message, state: FSMContext):
+    """В случае корректности пароля, функция формирует dict_of_filling этой конкретной заливки
+     и вместе с dict_of_persons передает в функцию insert_dict_of_persons_to_database"""
     password = _check_salary_password(message.text)
     if password:
         current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
-        await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {message.text}")
-        insert_user_to_database(dict_of_persons)
+        await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {password}")
+        dict_of_filling = {'Report_card_date': current_datetime,
+                           'author_of_entry': 'автор',
+                           'available_to_supervisor': 'True',
+                           'password_attempts': '0',
+                           'available_to_employee': 'True'}
+        insert_dict_of_persons_to_database(dict_of_persons, dict_of_filling)
         # Сбрасываем статус
         await state.set_state(Registration.employee_is_registered)
-        print(dict_of_persons)
     else:
         await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
         await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
