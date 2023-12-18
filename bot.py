@@ -8,10 +8,15 @@ from hidden.tokenfile import TOKEN_FOUR
 from database import db_common
 from handlers import welcome_handler, stop, salary
 
+from database.general_db_functions import test_connection
+
 
 bot_unit = Bot(TOKEN_FOUR)
 
-if not db_common.test_connection():
+if not test_connection(table_name="users", required_columns=('telegram_id', 'telegram_username', 'state_in_bot',
+                                                             'employee_code', 'secret_employee_code',
+                                                             'registration_attempts')
+                       ):
     input('Продолжать?')
 
 print('Состояние БД при запуске:')

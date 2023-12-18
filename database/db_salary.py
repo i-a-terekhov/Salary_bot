@@ -1,6 +1,4 @@
-import sqlite3
-from sqlite3 import Connection, Error
-from typing import List, Tuple
+from database.general_db_functions import open_connection, close_connection
 
 DATABASE_REG_NAME = 'database/bd.sql'
 TABLE_NAME = 'salary'
@@ -51,58 +49,9 @@ TRANSLATE_DICT = {
 }
 
 
-def open_connection(db_name: str = DATABASE_REG_NAME, name_of_columns: Tuple[str] = SALARY_TABLE) -> Connection:
-    # Открываем или создаем базу данных
-    connect = sqlite3.connect(db_name)
-    cursor = connect.cursor()
-
-    # Формируем строку с именами столбцов
-    columns_str = ', '.join([f"{column} TEXT" for column in name_of_columns])
-
-    # Создаем таблицу с динамически формированными столбцами
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
-            {columns_str}
-        )
-    ''')
-    return connect
-
-
-def close_connection(connect: Connection) -> None:
-    connect.commit()
-    connect.close()
-
-
-def test_connection(required_columns: Tuple[str] = SALARY_TABLE) -> bool:
-    print('Проверка подключения к БД: ', end='')
-    try:
-        connect = open_connection()
-        cursor = connect.cursor()
-
-        # Проверяем существование таблицы и ее структуру
-        cursor.execute(f'''
-            PRAGMA table_info({TABLE_NAME})
-        ''')
-        existing_columns = [col[1] for col in cursor.fetchall()]
-
-        if set(existing_columns) != set(required_columns):
-            print("Структура таблицы не соответствует требуемой")
-            print(f'existing_columns: {existing_columns}')
-            print(f'required_columns: {required_columns}')
-            connect.close()
-            return False
-        connect.close()
-        print("ОК")
-        return True
-
-    except Error as e:
-        print(f"Error: {e}")
-        return False
-
-
 def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: dict) -> bool:
     """Функция принимает два словаря: dict_of_persons с данными по сотрудникам и dict_of_filling с данными по заливке"""
-    connect = open_connection()
+    connect = open_connection(table_name=TABLE_NAME, name_of_columns=SALARY_TABLE)
     cursor = connect.cursor()
 
     try:
