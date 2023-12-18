@@ -417,6 +417,7 @@ def _check_salary_password(user_input: str) -> str | bool:
         return False
 
 
+#TODO добавить ID автора:
 @router.message(BossHere.creating_a_secret_code)
 async def password_entry_processing(message: Message, state: FSMContext):
     """В случае корректности пароля, функция формирует dict_of_filling этой конкретной заливки
@@ -425,10 +426,9 @@ async def password_entry_processing(message: Message, state: FSMContext):
     if password:
         current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
         await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {password}")
-        dict_of_filling = {'Report_card_date': current_datetime,
+        dict_of_filling = {'Report_card_date': str(current_datetime),
                            'author_of_entry': 'автор',
                            'available_to_supervisor': 'True',
-                           'password_attempts': '0',
                            'available_to_employee': 'True'}
         insert_dict_of_persons_to_database(dict_of_persons, dict_of_filling)
         # Сбрасываем статус

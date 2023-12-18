@@ -4,11 +4,11 @@ from typing import List, Tuple
 
 DATABASE_REG_NAME = 'database/bd.sql'
 TABLE_NAME = 'salary'
-SALARY_TABLE = ('Report_card_date', 'author_of_entry', 'available_to_supervisor', 'password_attempts',
-                # Дата табеля,      Руководитель,       Доступно руководителю,      Попыток ввода пароля,
+SALARY_TABLE = ('Report_card_date', 'Author_of_entry', 'Available_to_supervisor',
+                # Дата табеля,      Руководитель,       Доступно руководителю,
 
-                'available_to_employee', 'secret_employee_code', 'employee_code', 'Position', 'Full_name',
-                # Доступно сотруднику,  Секретный код сотрудника, Код сотрудника,   Должность,    Ф.И.О.,
+                'Available_to_employee', 'Employee_code', 'Position', 'Full_name',
+                # Доступно сотруднику,  Код сотрудника,   Должность,    Ф.И.О.,
 
                 'Salary_total', 'Total_motivation', 'Salary_total_plus_Bonus', 'Bonus_vacation_compensation',
                 # Итог З/П,     Итог мотивация,     Итог З\П+Бонус,             Премия(компенсация отпуска),
@@ -111,14 +111,22 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
             filling_str = ', '.join(dict_of_filling.keys())
             filling_val = ', '.join(['?' for _ in dict_of_filling])
 
-            columns_str = ', '.join(dict_of_persons[user_id].keys()) + filling_str
-            values_str = ', '.join(['?' for _ in dict_of_persons[user_id]]) + filling_str
+            columns_str = ', '.join(dict_of_persons[user_id].keys()) + ', ' + filling_str
+            values_str = ', '.join(['?' for _ in dict_of_persons[user_id]]) + ', ' + filling_val
             for ru_name in TRANSLATE_DICT:
                 # print(f'Ищем {ru_name} в строке {columns_str}')
                 columns_str = columns_str.replace(ru_name, TRANSLATE_DICT[ru_name])
 
+            print('-' * 100)
+            print(columns_str)
+            print(values_str)
+            print('-' * 100)
+
             insert_query = f'INSERT INTO {TABLE_NAME} ({columns_str}) VALUES ({values_str})'
-            cursor.execute(insert_query, tuple(str(value) for value in dict_of_persons[user_id].values()))
+
+            values_tuple = tuple(str(value) for value in dict_of_persons[user_id].values())
+            values_tuple += tuple(dict_of_filling.values())
+            cursor.execute(insert_query, values_tuple)
             # print(f'Данные юзера {user_id} занесены в БД')
             connect.commit()
         print(f"Все данные из словаря dict_of_persons успешно записаны в БД")
