@@ -23,6 +23,7 @@ SALARY_TABLE = ('Report_card_date', 'Author_of_entry', 'Available_to_supervisor'
                 'Placement_Points', 'Volume_M3_cross', 'Shipment_Assembly_Points'
                 # Размещение,           Объем М3 кросс.,    Сборка отгрузок
                 )
+
 TRANSLATE_DICT = {
     'Код.': 'Employee_code',
     'Должность': 'Position',
@@ -49,32 +50,31 @@ TRANSLATE_DICT = {
 
 
 def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: dict) -> bool:
-    """Функция принимает два словаря: dict_of_persons с данными по сотрудникам и dict_of_filling с данными по заливке"""
+    """Функция принимает два словаря: dict_of_persons с данными по сотрудникам и dict_of_filling с данными по заливке
+    и проливает их в БД"""
+
     connect = open_connection(table_name=TABLE_NAME, name_of_columns=SALARY_TABLE)
     cursor = connect.cursor()
 
     try:
+        # Значения из dict_of_filling одинаковы для каждой записи, поэтому их приводим в нужную форму один раз:
+        filling_columns_str = ', '.join(dict_of_filling.keys())
+        filling_values_str = ', '.join(['?' for _ in dict_of_filling])
+
         for user_id in dict_of_persons:
-            # Вставляем новую запись
-            filling_str = ', '.join(dict_of_filling.keys())
-            filling_val = ', '.join(['?' for _ in dict_of_filling])
+            # Для каждого юзера из dict_of_persons формируем запись:
+            persons_columns_str = ', '.join(dict_of_persons[user_id].keys()) + ', ' + filling_columns_str
+            persons_values_str = ', '.join(['?' for _ in dict_of_persons[user_id]]) + ', ' + filling_values_str
 
-            columns_str = ', '.join(dict_of_persons[user_id].keys()) + ', ' + filling_str
-            values_str = ', '.join(['?' for _ in dict_of_persons[user_id]]) + ', ' + filling_val
+            # Т.к. "столбцы" в dict_of_persons записаны кириллицей, используем переводчик:
             for ru_name in TRANSLATE_DICT:
-                # print(f'Ищем {ru_name} в строке {columns_str}')
-                columns_str = columns_str.replace(ru_name, TRANSLATE_DICT[ru_name])
+                persons_columns_str = persons_columns_str.replace(ru_name, TRANSLATE_DICT[ru_name])
 
-            # print('-' * 100)
-            # print(columns_str)
-            # print(values_str)
-            # print('-' * 100)
-
-            insert_query = f'INSERT INTO {TABLE_NAME} ({columns_str}) VALUES ({values_str})'
-
+            insert_query = f'INSERT INTO {TABLE_NAME} ({persons_columns_str}) VALUES ({persons_values_str})'
             values_tuple = tuple(str(value) for value in dict_of_persons[user_id].values())
             values_tuple += tuple(dict_of_filling.values())
             cursor.execute(insert_query, values_tuple)
+
             # print(f'Данные юзера {user_id} занесены в БД')
             connect.commit()
         print(f"Все данные из словаря dict_of_persons успешно записаны в БД")

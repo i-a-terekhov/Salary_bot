@@ -427,6 +427,8 @@ def _check_salary_password(user_input: str) -> str | bool:
 
 
 #TODO добавить ID автора:
+#TODO ДОБАВИТЬ ПАРОЛЬ, ПО КОТОРОМУ РАБОТНИК ПОЛУЧИТ КВИТОК!!!
+
 @router.message(BossHere.creating_a_secret_code)
 async def password_entry_processing(message: Message, state: FSMContext):
     """В случае корректности пароля, функция формирует dict_of_filling этой конкретной заливки
