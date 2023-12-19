@@ -2,8 +2,6 @@ import sqlite3
 from sqlite3 import Connection, Error
 from typing import Tuple
 
-from database.db_common import TABLE_NAME, REGISTRATION_TABLE
-
 DATABASE_REG_NAME = 'database/bd.sql'
 
 
@@ -112,31 +110,23 @@ def update_data_in_column(
     close_connection(connect=connect)
 
 
-# def get_data_from_column(telegram_id: str, column: str) -> str:
-#     connect = open_connection(table_name=TABLE_NAME, name_of_columns=REGISTRATION_TABLE)
-#     cursor = connect.cursor()
-#
-#     # Формируем SQL-запрос для выбора данных из указанного столбца
-#     select_query = f"SELECT {column} FROM users WHERE telegram_id = ?"
-#     cursor.execute(select_query, (telegram_id,))
-#
-#     # Извлекаем результат запроса
-#     result = cursor.fetchone()
-#     connect.close()
-#
-#     # Если результат есть, возвращаем значение столбца, иначе возвращаем пустую строку
-#     return result[0] if result else ""
-#
-#
-# def get_user_state_from_db(telegram_id: str) -> str | bool:
-#     target_column = 'state_in_bot'
-#     value = get_data_from_column(telegram_id=telegram_id, column=target_column)
-#     if value != "":
-#         return value
-#     else:
-#         return False
-#
-#
-# def save_user_state_to_db(telegram_id: str, new_state: str) -> None:
-#     target_column = 'state_in_bot'
-#     update_data_in_column(base_column_name=telegram_id, target_column_name=target_column, new_value=new_state)
+def get_data_from_column(
+        table_name: str, base_column_name: str, base_column_value: str, target_column_name: str
+) -> list:
+    """Функция возвращает значения из столбца target_column_name
+    для для заданного base_column_value в столбце base_column_name
+    (может быт несколько значений, если значение base_column_value не уникально"""
+
+    connect = open_database()
+    cursor = connect.cursor()
+
+    # Формируем SQL-запрос для выбора данных из указанного столбца
+    select_query = f"SELECT {target_column_name} FROM {table_name} WHERE {base_column_name} = ?"
+    cursor.execute(select_query, (base_column_value,))
+
+    # Извлекаем результат запроса
+    results = cursor.fetchall()
+    connect.close()
+
+    # Если результат есть, возвращаем лист со значениями столбца, иначе возвращаем пустой список
+    return [result[0] for result in results] if results else []

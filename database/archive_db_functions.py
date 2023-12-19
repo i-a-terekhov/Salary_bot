@@ -1,7 +1,8 @@
 import sqlite3
 from typing import List
 
-from db_common import open_connection, close_connection, TABLE_NAME
+from db_common import open_connection, close_connection
+from database.user_table_functions import TABLE_NAME
 
 
 def repair_table(table_name: str = TABLE_NAME, columns: List[str] = None) -> None:
