@@ -9,8 +9,12 @@ REGISTRATION_TABLE = ('telegram_id', 'telegram_username', 'state_in_bot',
 
 
 def get_user_state_from_db(telegram_id: str) -> str | bool:
-    target_column = 'state_in_bot'
-    value = get_data_from_column(telegram_id=telegram_id, column=target_column)
+    value = get_data_from_column(
+        table_name=TABLE_NAME,
+        base_column_name='telegram_id',
+        base_column_value=telegram_id,
+        target_column_name='state_in_bot'
+    )[0]
     if value != "":
         return value
     else:

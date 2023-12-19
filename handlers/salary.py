@@ -8,7 +8,6 @@ from aiogram.types import Message, CallbackQuery
 from hidden.tokenfile import TOKEN_FOUR
 from states import BossHere
 from database.salary_table_functions import insert_dict_of_persons_to_database
-from database.general_db_functions import open_connection, close_connection, test_connection
 
 import openpyxl
 

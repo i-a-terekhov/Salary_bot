@@ -65,10 +65,10 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
                 # print(f'Ищем {ru_name} в строке {columns_str}')
                 columns_str = columns_str.replace(ru_name, TRANSLATE_DICT[ru_name])
 
-            print('-' * 100)
-            print(columns_str)
-            print(values_str)
-            print('-' * 100)
+            # print('-' * 100)
+            # print(columns_str)
+            # print(values_str)
+            # print('-' * 100)
 
             insert_query = f'INSERT INTO {TABLE_NAME} ({columns_str}) VALUES ({values_str})'
 

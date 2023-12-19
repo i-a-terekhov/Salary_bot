@@ -53,7 +53,7 @@ def test_connection(table_name: str, required_columns: Tuple[str, ...]) -> bool:
         ''')
         existing_columns = [col[1] for col in cursor.fetchall()]
 
-        if set(existing_columns) != required_columns:
+        if set(existing_columns) != set(required_columns):
             print("Структура таблицы не соответствует требуемой")
             print(f'existing_columns: {existing_columns}')
             print(f'required_columns: {required_columns}')
