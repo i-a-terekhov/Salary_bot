@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
+import database.general_db_functions
 from hidden.tokenfile import TOKEN_FOUR
 from database import db_common
 from handlers import welcome_handler, stop, salary
@@ -20,7 +21,7 @@ if not test_connection(table_name="users", required_columns=('telegram_id', 'tel
     input('Продолжать?')
 
 print('Состояние БД при запуске:')
-db_common.display_all_data()
+database.general_db_functions.display_all_data()
 
 
 async def main(bot):

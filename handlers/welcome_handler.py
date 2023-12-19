@@ -9,8 +9,8 @@ from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
-from database.db_common import insert_user_to_database, update_data_in_column, get_user_state_from_db, \
-    get_data_from_column
+from database.db_common import insert_user_to_database
+from database.general_db_functions import update_data_in_column, get_data_from_column, get_user_state_from_db
 
 from hidden.tokenfile import TOKEN_FOUR
 from encrypt.math_operations import check_employee_code
@@ -104,9 +104,9 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
     # Устанавливаем пользователю состояние "Ожидание кода сотрудника"
     await state.set_state(Registration.waiting_for_employee_code)
     update_data_in_column(
-        telegram_id=str(callback.from_user.id),
-        column='state_in_bot',
-        value='waiting_for_employee_code'
+        base_column_name=str(callback.from_user.id),
+        target_column_name='state_in_bot',
+        new_value='waiting_for_employee_code'
     )
     await callback.message.answer(
         text="Введите 'Код сотрудника' (4-6 цифр)",
@@ -130,21 +130,21 @@ async def waiting_for_employee_code(message: Message, state: FSMContext):
                                  ["Изменить Код сотрудника"]))
         await state.set_state(Registration.waiting_for_secret_employee_code)
         update_data_in_column(
-            telegram_id=str(message.from_user.id),
-            column='state_in_bot',
-            value='waiting_for_secret_employee_code'
+            base_column_name=str(message.from_user.id),
+            target_column_name='state_in_bot',
+            new_value='waiting_for_secret_employee_code'
         )
         update_data_in_column(
-            telegram_id=str(message.from_user.id),
-            column='employee_code',
-            value=message.text
+            base_column_name=str(message.from_user.id),
+            target_column_name='employee_code',
+            new_value=message.text
         )
         # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", в БД -
         # это защита от подбора значения на следующем шаге, где "Секретный код сотрудника" будет вводить юзер
         update_data_in_column(
-            telegram_id=str(message.from_user.id),
-            column='secret_employee_code',
-            value=secret_employee_code
+            base_column_name=str(message.from_user.id),
+            target_column_name='secret_employee_code',
+            new_value=secret_employee_code
         )
     else:
         await message.answer(text="Не могу разобрать Ваш 'Код сотрудника'.\n"
@@ -164,24 +164,24 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
                                   "Когда Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель")
         await state.set_state(Registration.employee_is_registered)
         update_data_in_column(
-            telegram_id=str(message.from_user.id),
-            column='state_in_bot',
-            value='employee_is_registered'
+            base_column_name=str(message.from_user.id),
+            target_column_name='state_in_bot',
+            new_value='employee_is_registered'
         )
         # TODO здесь можно поместить кнопку "запросить квиток"
     else:
         registration_attempts = get_data_from_column(telegram_id=str(message.chat.id), column='registration_attempts')
         registration_attempts = int(registration_attempts) - 1
-        update_data_in_column(telegram_id=str(message.from_user.id),
-                              column='registration_attempts',
-                              value=str(registration_attempts))
+        update_data_in_column(base_column_name=str(message.from_user.id),
+                              target_column_name='registration_attempts',
+                              new_value=str(registration_attempts))
 
         if int(registration_attempts) < 1:
             await state.set_state(Registration.employee_is_banned)
             update_data_in_column(
-                telegram_id=str(message.from_user.id),
-                column='state_in_bot',
-                value='employee_is_banned'
+                base_column_name=str(message.from_user.id),
+                target_column_name='state_in_bot',
+                new_value='employee_is_banned'
             )
             await message.answer(text=f"Вы исчерпали все попытки. Обратитесь к руководителю.")
 
@@ -216,9 +216,9 @@ async def cancel_registration(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(Registration.waiting_for_employee_code)
     update_data_in_column(
-        telegram_id=str(callback.from_user.id),
-        column='state_in_bot',
-        value='waiting_for_employee_code'
+        base_column_name=str(callback.from_user.id),
+        target_column_name='state_in_bot',
+        new_value='waiting_for_employee_code'
     )
     await callback.message.answer(
         text="Введите 'Код сотрудника' (4-6 цифр)",

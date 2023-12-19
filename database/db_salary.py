@@ -88,36 +88,3 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
     # Фиксируем изменения и закрываем соединение
     close_connection(connect=connect)
     return successful_insert
-
-
-def update_data_in_column(telegram_id: str, column: str, value: str) -> None:
-    connect = open_connection()
-    cursor = connect.cursor()
-
-    update_query = f'UPDATE {TABLE_NAME} SET {column} = ? WHERE telegram_id = ?'
-    cursor.execute(update_query, (value, telegram_id))
-    print(f"Для юзера {telegram_id} обновлено значение в столбце {column} на {value}")
-
-    close_connection(connect=connect)
-
-
-def display_all_data() -> None:
-    connect = open_connection()
-    cursor = connect.cursor()
-
-    # Выбираем все строки из таблицы salary
-    select_all_query = f'SELECT * FROM {TABLE_NAME}'
-    cursor.execute(select_all_query)
-
-    # Получаем имена столбцов
-    column_names = [col[0] for col in cursor.description]
-
-    all_data = cursor.fetchall()
-
-    if not all_data:
-        print("В таблице нет данных.")
-    else:
-        print(column_names)
-        for row in all_data:
-            print(row)
-    connect.close()
