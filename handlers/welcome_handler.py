@@ -16,7 +16,8 @@ bot = Bot(TOKEN_FOUR)
 router = Router()
 
 
-@router.message(StateFilter(None))
+# При получении файла, проверка статуса будет вызываться из хендлера salary.handle_excel_file
+@router.message(StateFilter(None), ~F.document)
 async def restoring_state_from_database(message: Message, state: FSMContext):
     name_of_current_state = get_user_state_from_db(str(message.chat.id))
     print(f'Юзер {message.chat.id}: restoring_state_from_database. Текущий статус: {name_of_current_state}')
@@ -39,10 +40,6 @@ async def restoring_state_from_database(message: Message, state: FSMContext):
 
         elif name_of_current_state == 'employee_is_banned':
             await employee_is_banned(message=message)
-
-    # if name_of_current_state == 'employee_is_registered' and F.document.file_name.endswith('.xlsx'):
-    #     await handle_excel_file(message=message)
-    # TODO добавить обработку при получении файла: если employee_is_registered, принимаем файл.
 
 
 @router.message(Command("start"), StateFilter(None))

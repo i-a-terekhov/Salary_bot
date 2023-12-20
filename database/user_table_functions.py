@@ -23,6 +23,21 @@ def get_user_state_from_db(telegram_id: str) -> str | bool:
         return False
 
 
+def get_user_employee_code_from_db(telegram_id: str) -> str | bool:
+    """Функция возвращает значение state_in_bot в таблице TABLE_NAME для пользователя telegram_id"""
+
+    value = get_data_from_column(
+        table_name=TABLE_NAME,
+        base_column_name='telegram_id',
+        base_column_value=telegram_id,
+        target_column_name='employee_code'
+    )[0]
+    if value != "":
+        return value
+    else:
+        return False
+
+
 def save_user_state_to_db(telegram_id: str, new_state: str) -> None:
     """Функция обновляет значение state_in_bot в таблице TABLE_NAME для пользователя telegram_id"""
 

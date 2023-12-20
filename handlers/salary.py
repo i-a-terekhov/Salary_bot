@@ -5,6 +5,7 @@ from aiogram import Bot, Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
+from database.user_table_functions import get_user_employee_code_from_db, get_user_state_from_db
 from hidden.tokenfile import TOKEN_FOUR
 from states import BossHere
 from database.salary_table_functions import insert_dict_of_persons_to_database
@@ -46,7 +47,7 @@ target_column_11 = 'Кол-во ошибок (примечание)'
 target_column_12 = 'Сумма ошибки'
 target_column_13 = 'Единый коэфф.'
 target_column_14 = 'Дополнительные работы Н/Ч'
-target_column_15 = 'Выдача '
+target_column_15 = 'Выдача '  # <-- пробел после слова - как в файле
 target_column_16 = 'Доставки(Подготовка отгрузок)'
 target_column_17 = 'Приемка'
 target_column_18 = 'Размещение'
@@ -83,13 +84,16 @@ target_columns = [base_column, target_column_01, target_column_02, target_column
                   target_column_11, target_column_12, target_column_13, target_column_14, target_column_15,
                   target_column_16, target_column_17, target_column_18, target_column_19, target_column_20]
 
+# Так как в таблице наименования столбцов повторяются, а функция поиска нужного столбца возвращает только первый
+# найденный, применяем "сдвиг" для определенных столбцов:
 offset_columns = [target_column_15, target_column_16, target_column_17,
                   target_column_18, target_column_19, target_column_20]
+# Величина сдвига:
 amount_of_indentation = 12
 
 dict_of_persons = {}  # Глобальный словарь для формирования заливки
-small_message_for_delete = []  # Собираем id сообщений-квитков для удалений
-start_message_for_delete = []  # Собираем id стартовых сообщений для удаления в случае отмены табеля или его заливки
+small_message_for_delete = []  # Глобальный список id сообщений-квитков для удалений
+start_message_for_delete = []  # Глобальный список id сообщений для удаления в случае отмены табеля или его заливки
 
 
 async def delete_some_messages(chat_id: int, numbers_of_message: list[int]) -> None:
@@ -313,81 +317,98 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
                 dict_of_persons[base_colum_value][target_column_name] = cell_value
 
 
-# Когда руководитель подтверждает суммы, бот просит его придумать пароль для этой конкретной заливки
-# TODO функция, проверяющая "секретный зарплатный код" для конкретной заливки
-
 # Когда ЗП-пароль установлен, данные перемещаются в БД, а руководителю высылаются секретные коды сотрудников
 # TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
-# TODO функция, формирующая записи в зарплатной таблице (с секртеным кодом, "попыток ввода", датой заливки, "доступом" и пр. доп. столбцами)
 
-# При подтверждении заливки данных, все сообщения с общими суммами и квитками должны удаляться
-
-# TODO добавить подфункцию проверки статуса юзера, приславшего файл из базы. Если сатус employee_is_registered - принимаем файл
-@router.message(F.document.file_name.endswith('.xlsx'), Registration.employee_is_registered)
-async def handle_excel_file(message: types.Document) -> None:
+# Т.к. планируется, что бот будет перезагружаться, а значит, при заливке очередного табеля юзер вероятно будет
+# "без статуса" ловим в роутере любое сообщение с файлом, и потом проверяем статус по базе:
+@router.message(F.document.file_name.endswith('.xlsx'))
+async def handle_excel_file(message: types.Document, state: FSMContext) -> None:
     """Функция анализа пойманного файла. При успешном результате выводятся краткие итоги по ЗП"""
+
     global start_message_for_delete
-    # Оповещение
-    # text = f'Юзер {message.from_user.id} прислал зарплатную ведомость'
-    # print(text)
-    # await bot.send_document(chat_id=OWNER_CHAT_ID, document=message.document.file_id, caption=message.caption)
 
-    # Получаем информацию о файле
-    file_info = await bot.get_file(message.document.file_id)
-    file = await bot.download_file(file_info.file_path)
+    # Смотрим статус в FSMContext: если None -> смотрим в БД: если не None -> восстанавливаем в state
+    name_of_current_state = await state.get_state()
+    if name_of_current_state is None:
+        name_of_current_state = get_user_state_from_db(str(message.chat.id))
+        # Если в базе state не None, восстанавливаем его:
+        if name_of_current_state is not None:
+            current_state = f'Registration:{name_of_current_state}'
+            await state.set_state(current_state)
 
-    # Открываем файл с помощью openpyxl
-    wb = openpyxl.load_workbook(file)
-
-    # Перебираем все листы
-    target_sheet = None
-    for sheet_name in wb.sheetnames:
-        sheet = wb[sheet_name]
-
-        # Проверяем условие на каждом листе
-        for row in sheet.iter_rows(min_row=1, max_row=3, min_col=1, max_col=3):
-            for cell in row:
-                if cell.value == try_sheet_factor:
-                    # На первом листе, удовлетворяющем условию, останавливаем перебор:
-                    target_sheet = sheet
-                    break
-        if target_sheet:
-            break
-
-    if target_sheet:
-        # Используем target_sheet для дальнейших действий
-        search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
-        small_results = forming_small_results_of_table()
-        if not small_results:
-            small_results = 'Ничего не найдено'
-            message_for_del = await bot.send_message(chat_id=message.from_user.id, text=small_results)
-            start_message_for_delete.append(message_for_del.message_id)
-        else:
-            await delete_some_messages(chat_id=message.chat.id, numbers_of_message=[message.message_id])
-
-            message_for_del = await bot.send_message(
-                chat_id=message.from_user.id,
-                text='В Вашем файле я обнаружил зарплатную таблицу.\nПроверьте итоговые суммы:')
-            start_message_for_delete.append(message_for_del.message_id)
-
-            message_for_del = await bot.send_message(chat_id=message.from_user.id, text=small_results)
-            start_message_for_delete.append(message_for_del.message_id)
-
-            message = await bot.send_message(
-                chat_id=message.from_user.id,
-                text='Вы можете посмотреть как будут выглядеть квитки для сотрудников.\n'
-                     'После утверждения табеля к рассылке, просмотр квитков будет недоступен.',
-                reply_markup=make_inline_rows_keyboard(["Выслать данные сотрудникам", "Посмотреть квиток", "Отменить"]))
-            small_message_for_delete.append(message.message_id)
-
-        # TODO здесь должна быть кнопки "Да, выслать данные" и "Посмотреть как будет выглядеть квиток"
-        # TODO Прикрутить кнопку "Отменить", которая удалит словарь и все помеченные для удаления сообщения
-
+    if name_of_current_state != 'employee_is_registered':
+        await bot.send_message(
+            chat_id=message.from_user.id,
+            text='Вначале Вам необходимо пройти регистрацию /start'
+        )
     else:
-        print("Лист не найден")
 
-    # Закрываем скачанный файл
-    wb.close()
+        # Получаем информацию о файле
+        file_info = await bot.get_file(message.document.file_id)
+        file = await bot.download_file(file_info.file_path)
+
+        # Открываем файл с помощью openpyxl
+        wb = openpyxl.load_workbook(file)
+
+        # Перебираем все листы
+        target_sheet = None
+        for sheet_name in wb.sheetnames:
+            sheet = wb[sheet_name]
+
+            # Проверяем условие на каждом листе
+            for row in sheet.iter_rows(min_row=1, max_row=3, min_col=1, max_col=3):
+                for cell in row:
+                    if cell.value == try_sheet_factor:
+                        # На первом листе, удовлетворяющем условию, останавливаем перебор:
+                        target_sheet = sheet
+                        break
+            if target_sheet:
+                break
+
+        if target_sheet:
+            # Используем target_sheet для дальнейших действий
+            search_salary_value(target_sheet=target_sheet, base_cell_name=base_column)
+            small_results = forming_small_results_of_table()
+            if not small_results:
+                small_results = 'Ничего не найдено'
+                message_for_del = await bot.send_message(chat_id=message.from_user.id, text=small_results)
+                start_message_for_delete.append(message_for_del.message_id)
+            else:
+                await delete_some_messages(chat_id=message.chat.id, numbers_of_message=[message.message_id])
+
+                message_for_del = await bot.send_message(
+                    chat_id=message.from_user.id,
+                    text='В Вашем файле я обнаружил зарплатную таблицу.\nПроверьте итоговые суммы:')
+                start_message_for_delete.append(message_for_del.message_id)
+
+                message_for_del = await bot.send_message(chat_id=message.from_user.id, text=small_results)
+                start_message_for_delete.append(message_for_del.message_id)
+
+                message = await bot.send_message(
+                    chat_id=message.from_user.id,
+                    text='Вы можете посмотреть как будут выглядеть квитки для сотрудников.\n'
+                         'После утверждения табеля к рассылке, просмотр квитков будет недоступен.',
+                    reply_markup=make_inline_rows_keyboard(["Выслать данные сотрудникам", "Посмотреть квиток", "Отменить"]))
+                small_message_for_delete.append(message.message_id)
+
+        else:
+            print("Лист не найден")
+
+        # Закрываем скачанный файл
+        wb.close()
+
+
+@router.callback_query(F.data.startswith("Отменить"))
+async def starting_to_create_password_report(callback: CallbackQuery):
+    global dict_of_persons, start_message_for_delete, small_message_for_delete
+    await callback.answer()
+
+    await delete_some_messages(chat_id=callback.message.chat.id, numbers_of_message=small_message_for_delete)
+    small_message_for_delete = []
+    await delete_some_messages(chat_id=callback.message.chat.id, numbers_of_message=start_message_for_delete)
+    start_message_for_delete = []
+    dict_of_persons = {}
 
 
 @router.callback_query(F.data.startswith("Выслать данные сотрудникам"))
@@ -397,9 +418,9 @@ async def starting_to_create_password_report(callback: CallbackQuery, state: FSM
     await state.set_state(BossHere.creating_a_secret_code)
 
     message_for_del = await callback.message.answer(text='Придумайте пароль для этой заливки. Каждая заливка '
-                                       'должна иметь уникальный пароль.\n'
-                                       'Зарегистрированные сотрудники смогут посмотреть свой квиток '
-                                       'только по этому паролю.')
+                                                         'должна иметь уникальный пароль.\n'
+                                                         'Зарегистрированные сотрудники смогут посмотреть свой квиток '
+                                                         'только по этому паролю.')
     small_message_for_delete.append(message_for_del.message_id)
 
     message_for_del = await callback.message.answer(text='После установки пароля, данные о сотрудниках будут сохранены '
@@ -426,9 +447,6 @@ def _check_salary_password(user_input: str) -> str | bool:
         return False
 
 
-#TODO добавить ID автора:
-#TODO ДОБАВИТЬ ПАРОЛЬ, ПО КОТОРОМУ РАБОТНИК ПОЛУЧИТ КВИТОК!!!
-
 @router.message(BossHere.creating_a_secret_code)
 async def password_entry_processing(message: Message, state: FSMContext):
     """В случае корректности пароля, функция формирует dict_of_filling этой конкретной заливки
@@ -438,18 +456,31 @@ async def password_entry_processing(message: Message, state: FSMContext):
     password = _check_salary_password(message.text)
     if password:
         current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
-        await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {password}")
+        author_of_entry = get_user_employee_code_from_db(str(message.chat.id))
+
         dict_of_filling = {'Report_card_date': str(current_datetime),
-                           'author_of_entry': 'автор',
+                           'author_of_entry': author_of_entry,
+                           'salary_password': password,
                            'available_to_supervisor': 'True',
                            'available_to_employee': 'True'}
         insert_dict_of_persons_to_database(dict_of_persons, dict_of_filling)
+        await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {password}")
+
         # Сбрасываем статус
         await state.set_state(Registration.employee_is_registered)
+
+        # Удаляем сообщения, помеченные для удаления
         await delete_some_messages(chat_id=message.chat.id, numbers_of_message=small_message_for_delete)
         small_message_for_delete = []
         await delete_some_messages(chat_id=message.chat.id, numbers_of_message=start_message_for_delete)
         start_message_for_delete = []
+
+        # Предлагаем сгенерировать секретные пароли сотрудникам
+        message_for_del = await message.answer(text='Теперь Вы можете распечатать секретные пароли для сотрудников'
+                                                    'из последней заливки табеля')
+        #TODO сдесь должна быть клавиатура "выбрать сотрудников"
+        start_message_for_delete.append(message_for_del.message_id)
+
     else:
         await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
         await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')

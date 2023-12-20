@@ -5,8 +5,8 @@ TABLE_NAME = 'salary'
 SALARY_TABLE = ('Report_card_date', 'Author_of_entry', 'Available_to_supervisor',
                 # Дата табеля,      Руководитель,       Доступно руководителю,
 
-                'Available_to_employee', 'Employee_code', 'Position', 'Full_name',
-                # Доступно сотруднику,  Код сотрудника,   Должность,    Ф.И.О.,
+                'Available_to_employee', 'salary_password', 'Employee_code', 'Position', 'Full_name',
+                # Доступно сотруднику,      Пароль заливки,  Код сотрудника,   Должность,    Ф.И.О.,
 
                 'Salary_total', 'Total_motivation', 'Salary_total_plus_Bonus', 'Bonus_vacation_compensation',
                 # Итог З/П,     Итог мотивация,     Итог З\П+Бонус,             Премия(компенсация отпуска),
