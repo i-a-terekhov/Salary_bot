@@ -24,7 +24,7 @@ def get_user_state_from_db(telegram_id: str) -> str | bool:
 
 
 def get_user_employee_code_from_db(telegram_id: str) -> str | bool:
-    """Функция возвращает значение state_in_bot в таблице TABLE_NAME для пользователя telegram_id"""
+    """Функция возвращает значение employee_code в таблице TABLE_NAME для пользователя telegram_id"""
 
     value = get_data_from_column(
         table_name=TABLE_NAME,

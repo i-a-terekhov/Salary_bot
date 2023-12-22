@@ -5,6 +5,7 @@ from aiogram import Bot, Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
+from database.general_db_functions import get_data_from_column
 from database.user_table_functions import get_user_employee_code_from_db, get_user_state_from_db
 from hidden.tokenfile import TOKEN_FOUR
 from states import BossHere
@@ -12,11 +13,13 @@ from database.salary_table_functions import insert_dict_of_persons_to_database
 
 import openpyxl
 
-from keyboards.simple_keyboard import make_inline_many_keys_keyboard, make_inline_rows_keyboard
+from keyboards.simple_keyboard import make_inline_many_keys_keyboard, make_inline_rows_keyboard, \
+    make_inline_secret_many_keys_keyboard
 from states import Registration
 
 router = Router()
 bot = Bot(TOKEN_FOUR)
+TABLE_NAME = 'salary'
 
 # Для поиска нужного листа мотивации ищем на каждом листе в диапазоне А1:С3 значение:
 try_sheet_factor = 'Мотивация по не  учетным данным'
@@ -85,7 +88,7 @@ target_columns = [base_column, target_column_01, target_column_02, target_column
                   target_column_16, target_column_17, target_column_18, target_column_19, target_column_20]
 
 # Так как в таблице наименования столбцов повторяются, а функция поиска нужного столбца возвращает только первый
-# найденный, применяем "сдвиг" для определенных столбцов:
+# # найденный, применяем "сдвиг" для определенных столбцов:
 offset_columns = [target_column_15, target_column_16, target_column_17,
                   target_column_18, target_column_19, target_column_20]
 # Величина сдвига:
@@ -317,9 +320,6 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
                 dict_of_persons[base_colum_value][target_column_name] = cell_value
 
 
-# Когда ЗП-пароль установлен, данные перемещаются в БД, а руководителю высылаются секретные коды сотрудников
-# TODO функция, высылающая руководителю файл(?) с секретными кодами сотрудников после заливки
-
 # Т.к. планируется, что бот будет перезагружаться, а значит, при заливке очередного табеля юзер вероятно будет
 # "без статуса" ловим в роутере любое сообщение с файлом, и потом проверяем статус по базе:
 @router.message(F.document.file_name.endswith('.xlsx'))
@@ -477,13 +477,37 @@ async def password_entry_processing(message: Message, state: FSMContext):
 
         # Предлагаем сгенерировать секретные пароли сотрудникам
         message_for_del = await message.answer(text='Теперь Вы можете распечатать секретные пароли для сотрудников'
-                                                    'из последней заливки табеля')
-        #TODO сдесь должна быть клавиатура "выбрать сотрудников"
+                                                    'из последней заливки табеля',
+                                               reply_markup=make_inline_rows_keyboard(["Сгенерировать секретные коды"]))
         start_message_for_delete.append(message_for_del.message_id)
 
     else:
         await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
         await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
 
+
+@router.callback_query(Registration.employee_is_registered, F.data.startswith("Сгенерировать секретные коды"))
+async def starting_to_create_password_report(callback: CallbackQuery):
+    await callback.answer()
+
+    # Получаем код сотрудника руководителя:
+    author_of_entry = get_user_employee_code_from_db(str(callback.message.chat.id))
+
+    # Получаем все коды сотрудников для данного руководителя:
+    employee_code_of_autor = get_data_from_column(table_name=TABLE_NAME,
+                                                  base_column_name='Author_of_entry',
+                                                  base_column_value=author_of_entry,
+                                                  target_column_name='Employee_code')
+    # Удаляем дубликаты:
+    employee_code_of_autor = list(set(employee_code_of_autor))
+
+    list_for_markup = ['Все сотрудники']
+    list_for_markup.extend(employee_code_of_autor)
+    list_for_markup.extend(['Генерация'])
+    print(list_for_markup)
+
+    await callback.message.answer(text='Выберете одного, несколько или всех сотрудников, '
+                                       'а затем нажмите кнопку "Генерация"',
+                                  reply_markup=make_inline_secret_many_keys_keyboard(list_for_markup))
 
 # TODO необходима функция "выслать информацию", когда босс заливает ЗП, всем зарегистрированным должно придти уведомление
