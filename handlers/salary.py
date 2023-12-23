@@ -5,7 +5,7 @@ from aiogram import Bot, Router, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
-from database.general_db_functions import get_data_from_column
+from database.general_db_functions import get_data_from_column, v_look_up_many, update_data_in_column
 from database.user_table_functions import get_user_employee_code_from_db, get_user_state_from_db
 from hidden.tokenfile import TOKEN_FOUR
 from states import BossHere
@@ -56,31 +56,6 @@ target_column_17 = 'Приемка'
 target_column_18 = 'Размещение'
 target_column_19 = 'Объем М3 кросс.'
 target_column_20 = 'Сборка отгрузок'
-
-# Возможный будущий формат хранения имен целевых столбцов:
-# another_name = {
-#     base_column: ["Код."],
-#     target_column_01: ["Должность"],
-#     target_column_02: ["Ф.И.О."],
-#     target_column_03: ["Итог З/П"],  # Оклад
-#     target_column_04: ["Итог мотивация"],  # Премия
-#     target_column_05: ["Итог З\П+Бонус"],  # Всего
-#     target_column_06: ["Премия(компенсация отпуска)"],
-#     target_column_07: ["Вычеты ОС(форма/прочее)"],
-#     target_column_08: ["Вычеты ОС(Инвентаризация)"],
-#     target_column_09: ['Вычеты-штрафы'],
-#     target_column_10: ['Факт часы'],
-#     target_column_11: ['Кол-во ошибок (примечание)'],
-#     target_column_12: ['Сумма ошибки'],
-#     target_column_13: ['Единый коэфф.'],
-#     target_column_14: ['Дополнительные работы Н/Ч'],
-#     target_column_15: ['Выдача '],
-#     target_column_16: ['Доставки(Подготовка отгрузок)'],
-#     target_column_17: ['Приемка'],
-#     target_column_18: ['Размещение'],
-#     target_column_19: ['Объем М3 кросс.'],
-#     target_column_20: ['Сборка отгрузок'],
-# }
 
 target_columns = [base_column, target_column_01, target_column_02, target_column_03, target_column_04, target_column_05,
                   target_column_06, target_column_07, target_column_08, target_column_09, target_column_10,
@@ -323,20 +298,13 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
 # Т.к. планируется, что бот будет перезагружаться, а значит, при заливке очередного табеля юзер вероятно будет
 # "без статуса" ловим в роутере любое сообщение с файлом, и потом проверяем статус по базе:
 @router.message(F.document.file_name.endswith('.xlsx'))
-async def handle_excel_file(message: types.Document, state: FSMContext) -> None:
+async def handle_excel_file(message: types.Document) -> None:
     """Функция анализа пойманного файла. При успешном результате выводятся краткие итоги по ЗП"""
 
     global start_message_for_delete
 
-    # Смотрим статус в FSMContext: если None -> смотрим в БД: если не None -> восстанавливаем в state
-    name_of_current_state = await state.get_state()
-    if name_of_current_state is None:
-        name_of_current_state = get_user_state_from_db(str(message.chat.id))
-        # Если в базе state не None, восстанавливаем его:
-        if name_of_current_state is not None:
-            current_state = f'Registration:{name_of_current_state}'
-            await state.set_state(current_state)
-
+    # Смотрим статус в БД:
+    name_of_current_state = get_user_state_from_db(str(message.chat.id))
     if name_of_current_state != 'employee_is_registered':
         await bot.send_message(
             chat_id=message.from_user.id,
@@ -433,7 +401,7 @@ async def starting_to_create_password_report(callback: CallbackQuery, state: FSM
     small_message_for_delete.append(message_for_del.message_id)
 
     message_for_del = await callback.message.answer(
-        text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов'
+        text='Пароль должен состоять из английских букв и цифр, длинной от 7 до 10 символов'
     )
     small_message_for_delete.append(message_for_del.message_id)
 
@@ -453,11 +421,22 @@ async def password_entry_processing(message: Message, state: FSMContext):
      и вместе с dict_of_persons передает в функцию insert_dict_of_persons_to_database"""
     global start_message_for_delete, small_message_for_delete
 
+    # Помещаем ввод пользователя (с предполагаемым паролем в лист для удаления)
+    small_message_for_delete.append(message.message_id)
+
     password = _check_salary_password(message.text)
     if password:
         current_datetime = datetime.now().strftime("%d.%m.%y %H:%M")
         author_of_entry = get_user_employee_code_from_db(str(message.chat.id))
 
+        # Затираем статус "True" для всех имеющихся (старых) строк данного руководителя:
+        update_data_in_column(table_name=TABLE_NAME,
+                              base_column_name='author_of_entry',
+                              base_column_value=author_of_entry,
+                              target_column_name='available_to_supervisor',
+                              new_value='False')
+
+        # Формируем новые записи для данного руководителя и заливаем в БД:
         dict_of_filling = {'Report_card_date': str(current_datetime),
                            'author_of_entry': author_of_entry,
                            'salary_password': password,
@@ -482,8 +461,11 @@ async def password_entry_processing(message: Message, state: FSMContext):
         start_message_for_delete.append(message_for_del.message_id)
 
     else:
-        await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
-        await message.answer(text='Пароль должен состоять из букв и цифр, длинной от 7 до 10 символов')
+        message_for_del = await message.answer(text='Пароль не соответствует требованиям. Попробуйте еще раз')
+        small_message_for_delete.append(message_for_del.message_id)
+        message_for_del = await message.answer(text='Пароль должен состоять из английских букв и цифр,'
+                                                    ' длинной от 7 до 10 символов')
+        small_message_for_delete.append(message_for_del.message_id)
 
 
 @router.callback_query(Registration.employee_is_registered, F.data.startswith("Сгенерировать секретные коды"))
@@ -493,14 +475,13 @@ async def starting_to_create_password_report(callback: CallbackQuery):
     # Получаем код сотрудника руководителя:
     author_of_entry = get_user_employee_code_from_db(str(callback.message.chat.id))
 
-    # Получаем все коды сотрудников для данного руководителя:
-    employee_code_of_autor = get_data_from_column(table_name=TABLE_NAME,
-                                                  base_column_name='Author_of_entry',
-                                                  base_column_value=author_of_entry,
-                                                  target_column_name='Employee_code')
-    # Удаляем дубликаты:
-    employee_code_of_autor = list(set(employee_code_of_autor))
+    # Получаем все коды сотрудников для "данного руководителя" и "доступные руководителю":
+    employee_code_of_autor = v_look_up_many(table_name=TABLE_NAME,
+                                            base_column_names=['Author_of_entry', 'Available_to_supervisor'],
+                                            base_column_values=[author_of_entry, 'True'],
+                                            target_column_name='Employee_code')
 
+    # Добавляем в список две дополнительные кнопки
     list_for_markup = ['Все сотрудники']
     list_for_markup.extend(employee_code_of_autor)
     list_for_markup.extend(['Генерация'])
@@ -511,3 +492,5 @@ async def starting_to_create_password_report(callback: CallbackQuery):
                                   reply_markup=make_inline_secret_many_keys_keyboard(list_for_markup))
 
 # TODO необходима функция "выслать информацию", когда босс заливает ЗП, всем зарегистрированным должно придти уведомление
+
+# TODO функция ловящая калбеки со списком сотрудников

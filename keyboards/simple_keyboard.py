@@ -33,6 +33,7 @@ def make_inline_rows_keyboard(items: list[str]) -> InlineKeyboardMarkup:
 
 def make_inline_many_keys_keyboard(items: list[str]) -> InlineKeyboardMarkup:
     """
+    Клавиатура для показа списка сотрудников с каллбеком на показ квитка
     Создаёт инлайн-клавиатуру с кнопками в несколько рядов по четыре в ряд
     :param items: список текстов для кнопок
     :return: объект реплай-клавиатуры
@@ -50,6 +51,7 @@ def make_inline_many_keys_keyboard(items: list[str]) -> InlineKeyboardMarkup:
 
 def make_inline_secret_many_keys_keyboard(items: list[str]) -> InlineKeyboardMarkup:
     """
+    Клавиатура для показа списка сотрудников с каллбеком на показ секретного кода (+ две кнопки)
     Создаёт инлайн-клавиатуру с кнопками в несколько рядов по четыре в ряд
     первый и последний ряд - по одной кнопке
     :param items: список текстов для кнопок

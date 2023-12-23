@@ -130,3 +130,28 @@ def get_data_from_column(
 
     # Если результат есть, возвращаем лист со значениями столбца, иначе возвращаем пустой список
     return [result[0] for result in results] if results else []
+
+
+def v_look_up_many(
+        table_name: str,
+        base_column_names: list[str, ...], base_column_values: list[str, ...],
+        target_column_name: str) -> list:
+    """Функция возвращает значения из столбца target_column_name
+    для для заданных значений base_column_values в столбцах base_column_names
+    (может быть несколько значений, если значение base_column_value не уникально"""
+
+    connect = open_database()
+    cursor = connect.cursor()
+
+    # Формируем SQL-запрос для выбора данных из указанных столбцов
+    # conditions = ' AND '.join([f'{col} = ?' for col in base_column_names])
+    conditions = ' AND '.join([f'{col} = ?' for col in base_column_names])
+    select_query = f"SELECT {target_column_name} FROM {table_name} WHERE {conditions}"
+    cursor.execute(select_query, tuple(base_column_values))
+
+    # Извлекаем результат запроса
+    results = cursor.fetchall()
+    connect.close()
+
+    # Если результат есть, возвращаем лист со значениями столбца, иначе возвращаем пустой список
+    return [result[0] for result in results] if results else []
