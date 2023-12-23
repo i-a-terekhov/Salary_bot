@@ -72,6 +72,8 @@ amount_of_indentation = 12
 dict_of_persons = {}  # Глобальный словарь для формирования заливки
 small_message_for_delete = []  # Глобальный список id сообщений-квитков для удалений
 start_message_for_delete = []  # Глобальный список id сообщений для удаления в случае отмены табеля или его заливки
+list_of_all_employee_codes = []  # Глобальный лист со всеми кодами сотрудников текущей заливки
+tuple_of_part_employee_codes = []  # Глобальный кортеж с частью кодов сотрудников текущей заливки
 
 
 async def delete_some_messages(chat_id: int, numbers_of_message: list[int]) -> None:
@@ -472,6 +474,8 @@ async def password_entry_processing(message: Message, state: FSMContext):
 async def starting_to_create_password_report(callback: CallbackQuery):
     await callback.answer()
 
+    global list_of_all_employee_codes, start_message_for_delete
+
     # Получаем код сотрудника руководителя:
     author_of_entry = get_user_employee_code_from_db(str(callback.message.chat.id))
 
@@ -481,16 +485,36 @@ async def starting_to_create_password_report(callback: CallbackQuery):
                                             base_column_values=[author_of_entry, 'True'],
                                             target_column_name='Employee_code')
 
+    list_of_all_employee_codes = employee_code_of_autor
+
     # Добавляем в список две дополнительные кнопки
     list_for_markup = ['Все сотрудники']
     list_for_markup.extend(employee_code_of_autor)
     list_for_markup.extend(['Генерация'])
-    print(list_for_markup)
 
-    await callback.message.answer(text='Выберете одного, несколько или всех сотрудников, '
-                                       'а затем нажмите кнопку "Генерация"',
-                                  reply_markup=make_inline_secret_many_keys_keyboard(list_for_markup))
+    message_for_del = await callback.message.answer(
+        text='Выберете одного, несколько или всех сотрудников, а затем нажмите кнопку "Генерация"',
+        reply_markup=make_inline_secret_many_keys_keyboard(list_for_markup)
+    )
+    start_message_for_delete.append(message_for_del.message_id)
 
 # TODO необходима функция "выслать информацию", когда босс заливает ЗП, всем зарегистрированным должно придти уведомление
 
+
 # TODO функция ловящая калбеки со списком сотрудников
+@router.callback_query(Registration.employee_is_registered, F.data.startswith("secret_"))
+async def continue_to_create_password_report(callback: CallbackQuery):
+    print('Функция ловли калбеков для секретных паролей')
+
+    global list_of_all_employee_codes, tuple_of_part_employee_codes
+
+    # Из каллбека извлекаем "код сотрудника" или одну из команд ['Генерация', 'Все сотрудники']:
+    _, command = callback.data.split('_')
+
+    if command == 'Генерация':
+        pass  # Удаляем start_message_for_delete, запускаем генерацию секретных кодов с tuple_of_part_employee_codes
+    elif command == 'Все сотрудники':
+        pass  # Удаляем start_message_for_delete, запускаем генерацию секретных кодов с list_of_all_employee_codes
+    else:
+        tuple_of_part_employee_codes.append(command)
+
