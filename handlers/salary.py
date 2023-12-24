@@ -545,7 +545,37 @@ async def continue_to_create_password_report(callback: CallbackQuery):
         small_message_for_delete.append(message_for_delete.message_id)
 
 
+# TODO сделать реформат файла:
+import openpyxl
+from aiogram.types import FSInputFile
+import os
+
+
 async def _get_secret_codes_for_employee(callback: CallbackQuery, employee_codes: list | tuple):
+    # Создаем новый Excel-файл
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+
+    # Заголовки столбцов
+    sheet.append(["Employee Code", "Secret Code"])
+
     for code in employee_codes:
         secret = check_employee_code(code)
-        await callback.message.answer(text=f'{code} - {secret}')
+        # Добавляем данные в таблицу Excel
+        sheet.append([code, secret])
+
+    # Определяем путь к файлу в директории бота
+    file_path = "secret_codes.xlsx"
+
+    # Сохраняем Excel-файл в директории бота
+    workbook.save(file_path)
+
+    # Оборачиваем файл в обертку FSInputFile и отправляем руководителю
+    table = FSInputFile(file_path)
+    await bot.send_document(chat_id=callback.message.chat.id, document=table)
+
+    # Закрываем Excel-файл
+    workbook.close()
+
+    # Удаляем файл после отправки, если это необходимо
+    os.remove(file_path)
