@@ -7,6 +7,7 @@ from aiogram.types import Message, CallbackQuery
 
 from database.general_db_functions import get_data_from_column, v_look_up_many, update_data_in_column
 from database.user_table_functions import get_user_employee_code_from_db, get_user_state_from_db
+from encrypt.math_operations import check_employee_code
 from hidden.tokenfile import TOKEN_FOUR
 from states import BossHere
 from database.salary_table_functions import insert_dict_of_persons_to_database
@@ -79,8 +80,12 @@ tuple_of_part_employee_codes = []  # Глобальный кортеж с час
 async def delete_some_messages(chat_id: int, numbers_of_message: list[int]) -> None:
     """Функция удаления сообщений в чате по message_id"""
     """Не забудь присвоить пустой список переменной, в случае передачи в эту функцию глобального списка"""
-    for num in numbers_of_message:
-        await bot.delete_message(chat_id=chat_id, message_id=num)
+    if len(numbers_of_message) > 0:
+        for num in numbers_of_message:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=num)
+            except:
+                pass
 
 
 def search_salary_value(target_sheet, base_cell_name=base_column) -> None:
@@ -198,7 +203,7 @@ async def forming_results_for_one_employee(callback: CallbackQuery):
             for value in output_order_one:
                 composed_text += f"{value}: {dict_of_persons[emp_id][value]}\n"
             composed_text += "-" * 45 + "\n"
-            composed_text += f"ИТОГ ЗП: {dict_of_persons[emp_id][output_order_two[2]]} руб.\n"\
+            composed_text += f"ИТОГ ЗП: {dict_of_persons[emp_id][output_order_two[2]]} руб.\n" \
                              f"Оклад: {dict_of_persons[emp_id][output_order_two[0]]} руб.\n" \
                              f"Премия: {dict_of_persons[emp_id][output_order_two[1]]} руб.\n"
             composed_text += "-" * 45 + "\n"
@@ -359,7 +364,8 @@ async def handle_excel_file(message: types.Document) -> None:
                     chat_id=message.from_user.id,
                     text='Вы можете посмотреть как будут выглядеть квитки для сотрудников.\n'
                          'После утверждения табеля к рассылке, просмотр квитков будет недоступен.',
-                    reply_markup=make_inline_rows_keyboard(["Выслать данные сотрудникам", "Посмотреть квиток", "Отменить"]))
+                    reply_markup=make_inline_rows_keyboard(
+                        ["Выслать данные сотрудникам", "Посмотреть квиток", "Отменить"]))
                 small_message_for_delete.append(message.message_id)
 
         else:
@@ -498,23 +504,48 @@ async def starting_to_create_password_report(callback: CallbackQuery):
     )
     start_message_for_delete.append(message_for_del.message_id)
 
+
 # TODO необходима функция "выслать информацию", когда босс заливает ЗП, всем зарегистрированным должно придти уведомление
 
 
-# TODO функция ловящая калбеки со списком сотрудников
 @router.callback_query(Registration.employee_is_registered, F.data.startswith("secret_"))
 async def continue_to_create_password_report(callback: CallbackQuery):
-    print('Функция ловли калбеков для секретных паролей')
-
-    global list_of_all_employee_codes, tuple_of_part_employee_codes
+    # await callback.answer()  # Ансвер не делаем, чтобы "подсветить" выбираемые кнопки
+    global start_message_for_delete, small_message_for_delete, list_of_all_employee_codes, tuple_of_part_employee_codes
 
     # Из каллбека извлекаем "код сотрудника" или одну из команд ['Генерация', 'Все сотрудники']:
     _, command = callback.data.split('_')
 
     if command == 'Генерация':
-        pass  # Удаляем start_message_for_delete, запускаем генерацию секретных кодов с tuple_of_part_employee_codes
+        # Удаляем start_message_for_delete:
+        await delete_some_messages(callback.message.chat.id, start_message_for_delete)
+        start_message_for_delete = []
+
+        part_of_employee = ', '.join(tuple_of_part_employee_codes)
+        await callback.message.answer(text=f'Готовим секретные коды для сотрудников {part_of_employee}')
+        await _get_secret_codes_for_employee(callback=callback, employee_codes=tuple_of_part_employee_codes)
+
     elif command == 'Все сотрудники':
-        pass  # Удаляем start_message_for_delete, запускаем генерацию секретных кодов с list_of_all_employee_codes
+        # Удаляем start_message_for_delete:
+        await delete_some_messages(callback.message.chat.id, start_message_for_delete)
+        start_message_for_delete = []
+
+        part_of_employee = ', '.join(list_of_all_employee_codes)
+        await callback.message.answer(text=f'Готовим секретные коды для сотрудников {part_of_employee}')
+        await _get_secret_codes_for_employee(callback=callback, employee_codes=list_of_all_employee_codes)
+
     else:
+        # Удаляем small_message_for_delete:
+        await delete_some_messages(callback.message.chat.id, small_message_for_delete)
+
         tuple_of_part_employee_codes.append(command)
 
+        message_for_delete = await callback.message.answer(
+            text=f'Выбрано сотрудников {len(tuple_of_part_employee_codes)}')
+        small_message_for_delete.append(message_for_delete.message_id)
+
+
+async def _get_secret_codes_for_employee(callback: CallbackQuery, employee_codes: list | tuple):
+    for code in employee_codes:
+        secret = check_employee_code(code)
+        await callback.message.answer(text=f'{code} - {secret}')
