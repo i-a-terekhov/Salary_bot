@@ -291,7 +291,7 @@ def search_values_of_one_target_column(base_column_head, target_sheet, target_co
             base_colum_value = target_sheet.cell(row=cell.row, column=base_column_head.column).value
 
             # Так же проверяем первые 4 символа (являются ли числами), чтобы отбросить строки-разделители
-            if len(str(base_colum_value)) > 4 and str(base_colum_value)[:4].isdigit():
+            if len(str(base_colum_value)) >= 4 and str(base_colum_value)[:4].isdigit():
 
                 # Добавляем значения в словарь
                 if base_colum_value not in dict_of_persons:
@@ -427,7 +427,7 @@ def _check_salary_password(user_input: str) -> str | bool:
 async def password_entry_processing(message: Message, state: FSMContext):
     """В случае корректности пароля, функция формирует dict_of_filling этой конкретной заливки
      и вместе с dict_of_persons передает в функцию insert_dict_of_persons_to_database"""
-    global start_message_for_delete, small_message_for_delete
+    global dict_of_persons, start_message_for_delete, small_message_for_delete
 
     # Помещаем ввод пользователя (с предполагаемым паролем в лист для удаления)
     small_message_for_delete.append(message.message_id)
@@ -453,6 +453,11 @@ async def password_entry_processing(message: Message, state: FSMContext):
         insert_dict_of_persons_to_database(dict_of_persons, dict_of_filling)
         await message.answer(text=f"Пароль для табеля от {current_datetime} установлен: {password}")
 
+        # Отправляем оповещения сотрудникам:
+        list_of_employee_codes = list(dict_of_persons.keys())
+        await _sending_notifications(list_of_employee_codes=list_of_employee_codes)
+        dict_of_persons = {}
+
         # Сбрасываем статус
         await state.set_state(Registration.employee_is_registered)
 
@@ -474,6 +479,16 @@ async def password_entry_processing(message: Message, state: FSMContext):
         message_for_del = await message.answer(text='Пароль должен состоять из английских букв и цифр,'
                                                     ' длинной от 7 до 10 символов')
         small_message_for_delete.append(message_for_del.message_id)
+
+
+async def _sending_notifications(list_of_employee_codes: list):
+    for employee_code in list_of_employee_codes:
+        employee_telegram_id = get_data_from_column(table_name='users',
+                                                    base_column_name='employee_code',
+                                                    base_column_value=employee_code,
+                                                    target_column_name='telegram_id')
+        if employee_telegram_id:
+            await bot.send_message(chat_id=employee_telegram_id[0], text='Вам пришел квиток')
 
 
 @router.callback_query(Registration.employee_is_registered, F.data.startswith("Сгенерировать секретные коды"))
@@ -503,9 +518,6 @@ async def starting_to_create_password_report(callback: CallbackQuery):
         reply_markup=make_inline_secret_many_keys_keyboard(list_for_markup)
     )
     start_message_for_delete.append(message_for_del.message_id)
-
-
-# TODO необходима функция "выслать информацию", когда босс заливает ЗП, всем зарегистрированным должно придти уведомление
 
 
 @router.callback_query(Registration.employee_is_registered, F.data.startswith("secret_"))
@@ -549,6 +561,7 @@ async def continue_to_create_password_report(callback: CallbackQuery):
 import openpyxl
 from aiogram.types import FSInputFile
 import os
+from openpyxl.styles import Border, Side, Alignment
 
 
 async def _get_secret_codes_for_employee(callback: CallbackQuery, employee_codes: list | tuple):
@@ -557,12 +570,28 @@ async def _get_secret_codes_for_employee(callback: CallbackQuery, employee_codes
     sheet = workbook.active
 
     # Заголовки столбцов
-    sheet.append(["Employee Code", "Secret Code"])
+    sheet.append(["Код", "Secret Code"])
 
     for code in employee_codes:
         secret = check_employee_code(code)
         # Добавляем данные в таблицу Excel
         sheet.append([code, secret])
+
+    # Задаем ширину столбца B
+    sheet.column_dimensions['A'].width = 10
+    sheet.column_dimensions['B'].width = 20
+
+    # Применяем стиль для ячеек с границами
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
+                         bottom=Side(style='thin'))
+
+    # Применяем выравнивание и задаем высоту для всех ячеек
+    for row in sheet.iter_rows(min_row=1, max_col=sheet.max_column, max_row=sheet.max_row):
+        for cell in row:
+            if cell.value:
+                cell.alignment = Alignment(vertical='center')
+                cell.border = thin_border
+                sheet.row_dimensions[cell.row].height = 30
 
     # Определяем путь к файлу в директории бота
     file_path = "secret_codes.xlsx"
@@ -577,5 +606,5 @@ async def _get_secret_codes_for_employee(callback: CallbackQuery, employee_codes
     # Закрываем Excel-файл
     workbook.close()
 
-    # Удаляем файл после отправки, если это необходимо
+    # Удаляем файл после отправки:
     os.remove(file_path)
