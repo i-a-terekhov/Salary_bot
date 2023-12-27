@@ -16,7 +16,7 @@ bot_unit = Bot(TOKEN_FOUR)
 if not test_connection(table_name=TABLE_NAME, required_columns=REGISTRATION_TABLE):
     input('Продолжать?')
 
-print(f'Состояние БД, таблица {TABLE_NAME}, при запуске:')
+print(f'Таблица {TABLE_NAME}, при запуске:')
 display_all_data_from_table(table_name=TABLE_NAME)
 
 

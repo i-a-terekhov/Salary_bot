@@ -104,8 +104,8 @@ def update_data_in_column(
 
     update_query = f'UPDATE {table_name} SET {target_column_name} = ? WHERE {base_column_name} = ?'
     cursor.execute(update_query, (new_value, base_column_value))
-    print(f"Для столбца значения {base_column_value} в столбце {base_column_name} "
-          f"обновлено значение в столбце {target_column_name} на {new_value}")
+    print(f"В столбце '{base_column_name}' напротив значения '{base_column_value}' "
+          f"обновлено значение в столбце '{target_column_name}' на '{new_value}'")
 
     close_connection(connect=connect)
 

@@ -620,6 +620,10 @@ async def _get_secret_codes_for_employee(callback: CallbackQuery, employee_codes
         new_sheet.page_setup.fitToPage = True
         new_sheet.page_setup.print_area = new_sheet.calculate_dimension()
 
+    # Удаляем лист 'Sheet'
+    sheet = workbook.get_sheet_by_name('Sheet')
+    workbook.remove_sheet(sheet)
+
     # Определяем путь к файлу в директории бота
     file_path = "secret_codes.xlsx"
 
