@@ -10,6 +10,7 @@ from database.user_table_functions import TABLE_NAME, get_user_state_from_db, in
 
 from hidden.tokenfile import TOKEN_FOUR
 from encrypt.math_operations import check_employee_code
+from database.user_table_functions import employee_code_not_registered
 
 bot = Bot(TOKEN_FOUR)
 
@@ -111,43 +112,52 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
 
 @router.message(Registration.waiting_for_employee_code)
 async def waiting_for_employee_code(message: Message, state: FSMContext):
+    """Функция проверяет полученный "код сотрудника" на возможность его конвертации в "секретный код сотрудника", что
+    является косвенным признаком корректного "кода сотрудника", """
     print(f'Юзер {message.chat.id}: waiting_for_employee_code')
 
-    # TODO добавить проверку полученного кода на наличие в БД
-
+    # Пытаемся преобразовать "код сотрудника" в "секретный код сотрудника"
     secret_employee_code = check_employee_code(message.text)
     if secret_employee_code:
-        await message.answer(text="Отлично!\n"
-                                  "Теперь введите 'Секретный код сотрудника."
-                                  "Как правило, он состоит из цифр, разделенных тире.\n"
-                                  "Например: 1111-1111-1111-1111\n"
-                                  "У Вас будет три попытки!",
-                             reply_markup=make_inline_row_keyboard(
-                                 ["Изменить Код сотрудника"]))
-        await state.set_state(Registration.waiting_for_secret_employee_code)
-        update_data_in_column(
-            table_name=TABLE_NAME,
-            base_column_name='telegram_id',
-            base_column_value=str(message.from_user.id),
-            target_column_name='state_in_bot',
-            new_value='waiting_for_secret_employee_code'
-        )
-        update_data_in_column(
-            table_name=TABLE_NAME,
-            base_column_name='telegram_id',
-            base_column_value=str(message.from_user.id),
-            target_column_name='employee_code',
-            new_value=message.text
-        )
-        # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", в БД -
-        # это защита от подбора значения на следующем шаге, где "Секретный код сотрудника" будет вводить юзер
-        update_data_in_column(
-            table_name=TABLE_NAME,
-            base_column_name='telegram_id',
-            base_column_value=str(message.from_user.id),
-            target_column_name='secret_employee_code',
-            new_value=secret_employee_code
-        )
+        # Проверяем "код сотрудника" на наличие в таблице зарегистрированных юзеров:
+        code_not_registered = employee_code_not_registered(message.text)
+        if code_not_registered:
+            await message.answer(text="Отлично!\n"
+                                      "Теперь введите 'Секретный код сотрудника."
+                                      "Как правило, он состоит из цифр, разделенных тире.\n"
+                                      "Например: 1111-1111-1111-1111\n"
+                                      "У Вас будет три попытки!",
+                                 reply_markup=make_inline_row_keyboard(
+                                     ["Изменить Код сотрудника"]))
+            await state.set_state(Registration.waiting_for_secret_employee_code)
+            update_data_in_column(
+                table_name=TABLE_NAME,
+                base_column_name='telegram_id',
+                base_column_value=str(message.from_user.id),
+                target_column_name='state_in_bot',
+                new_value='waiting_for_secret_employee_code'
+            )
+            update_data_in_column(
+                table_name=TABLE_NAME,
+                base_column_name='telegram_id',
+                base_column_value=str(message.from_user.id),
+                target_column_name='employee_code',
+                new_value=message.text
+            )
+            # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", в БД -
+            # это защита от подбора значения на следующем шаге, где "Секретный код сотрудника" будет вводить юзер
+            update_data_in_column(
+                table_name=TABLE_NAME,
+                base_column_name='telegram_id',
+                base_column_value=str(message.from_user.id),
+                target_column_name='secret_employee_code',
+                new_value=secret_employee_code
+            )
+        # Если полученный от юзера "код сотрудника" уже зарегистрирован на другой telegram_id:
+        else:
+            await message.answer(text="Введенный 'Код сотрудника' уже зарегистрирован.\n"
+                                      "Если это Ваш код, обратитесь к руководителю")
+    # Если полученный от юзера "код сотрудника" не может быть преобразован в "секретный код сотрудника":
     else:
         await message.answer(text="Не могу разобрать Ваш 'Код сотрудника'.\n"
                                   "Напоминаю, что он состоит из 4-6 цифр.\n"

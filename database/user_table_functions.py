@@ -50,6 +50,22 @@ def save_user_state_to_db(telegram_id: str, new_state: str) -> None:
     )
 
 
+def employee_code_not_registered(employee_code: str) -> bool:
+    """Функция проверяет наличие employee_code в таблице users"""
+
+    value = get_data_from_column(
+        table_name=TABLE_NAME,
+        base_column_name='employee_code',
+        base_column_value=employee_code,
+        target_column_name='telegram_id'
+    )[0]
+    # Если значение пустое, значит employee_code еще нет в таблице users -> возвращаем True
+    if value == "":
+        return True
+    else:
+        return False
+
+
 def insert_user_to_database(reg_table: Tuple[str, ...]) -> bool:
     """Функция записывает в таблицу TABLE_NAME нового юзера, если юзер не существует"""
 

@@ -87,3 +87,18 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
     # Фиксируем изменения и закрываем соединение
     close_connection(connect=connect)
     return successful_insert
+
+
+def close_irrelevant_entries(employee_code) -> None:
+    """Функция для данного employee_code закрывает все неактуальные записи,
+    оставляя только последнюю, если она не старше двух суток"""
+    pass
+
+
+def check_the_receipt(employee_code: str) -> bool:
+    """Функция проверяет наличие для данного employee_code записи в таблице salary,
+    где бы значение available_to_employee == True"""
+
+    close_irrelevant_entries(employee_code=employee_code)
+
+    pass
