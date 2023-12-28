@@ -3,10 +3,12 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
+from database.salary_table_functions import close_irrelevant_entries
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
 from database.general_db_functions import update_data_in_column, get_data_from_column
-from database.user_table_functions import TABLE_NAME, get_user_state_from_db, insert_user_to_database
+from database.user_table_functions import TABLE_NAME, get_user_state_from_db, insert_user_to_database, \
+    get_user_employee_code_from_db
 
 from hidden.tokenfile import TOKEN_FOUR
 from encrypt.math_operations import check_employee_code
@@ -121,7 +123,7 @@ async def waiting_for_employee_code(message: Message, state: FSMContext) -> None
         code_not_registered = employee_code_not_registered(message.text)
         if code_not_registered:
             await message.answer(text="Отлично!\n"
-                                      "Теперь введите 'Секретный код сотрудника."
+                                      "Теперь введите 'Секретный код сотрудника. "
                                       "Как правило, он состоит из цифр, разделенных тире.\n"
                                       "Например: 1111-1111-1111-1111\n"
                                       "У Вас будет три попытки!",
@@ -142,7 +144,7 @@ async def waiting_for_employee_code(message: Message, state: FSMContext) -> None
                 target_column_name='employee_code',
                 new_value=message.text
             )
-            # Сохраннение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", в БД -
+            # Сохранение "Секретного кода сотрудника", полученного из функции шифрования "Кода сотрудника", в БД -
             # это защита от подбора значения на следующем шаге, где "Секретный код сотрудника" будет вводить юзер
             update_data_in_column(
                 table_name=TABLE_NAME,
@@ -185,7 +187,7 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
             target_column_name='state_in_bot',
             new_value='employee_is_registered'
         )
-        await message.answer(text="Отлично! Регистрация прошла успешно.\n"
+        await message.answer(text="Отлично!\nРегистрация прошла успешно.\n"
                                   "Если Вы руководитель, отправьте табель в виде файла Excel.\n"
                                   "Если Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель, "
                                   "но можно проверить, имеется ли уже сейчас актуальный квиток",
@@ -210,7 +212,7 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
             target_column_name='registration_attempts',
             new_value=str(registration_attempts)
         )
-
+        # Если счетчик попыток дошел до нуля, баним юзера:
         if int(registration_attempts) < 1:
             await state.set_state(Registration.employee_is_banned)
             update_data_in_column(
@@ -225,6 +227,13 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
         else:
             await message.answer(text=f"'Секретный код сотрудника' не соответствует коду сотрудника.\n"
                                       f"Осталось попыток: {registration_attempts}")
+
+
+@router.callback_query(Registration.employee_is_registered, F.data.in_(["Проверить наличие квитка"]))
+async def check_the_receipt(callback: CallbackQuery, state: FSMContext) -> None:
+    print('Функция check_the_receipt')
+    code = get_user_employee_code_from_db(str(callback.message.chat.id))
+    close_irrelevant_entries(code)
 
 
 @router.message(Registration.employee_is_banned)

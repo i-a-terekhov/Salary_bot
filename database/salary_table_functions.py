@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from database.general_db_functions import open_connection, close_connection
 
 DATABASE_REG_NAME = 'database/bd.sql'
@@ -92,7 +94,40 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
 def close_irrelevant_entries(employee_code) -> None:
     """Функция для данного employee_code закрывает все неактуальные записи,
     оставляя только последнюю, если она не старше двух суток"""
-    pass
+
+    connect = open_connection(table_name=TABLE_NAME, name_of_columns=SALARY_TABLE)
+    cursor = connect.cursor()
+
+    # Выбираем все записи сотрудника доступные ему, и упорядочиваем по дате в обратном порядке
+    cursor.execute(f'''
+        SELECT *
+        FROM salary
+        WHERE Employee_code = ? AND Available_to_employee = 'True'
+        ORDER BY datetime(Report_card_date) DESC
+    ''', (employee_code,))
+    entries = cursor.fetchall()
+
+    if len(entries) > 1:
+        # Вычисляем даты "сейчас" и "дата записи" для сравнения
+        now = datetime.now()
+        data_of_entity = datetime.strptime(entries[-1][SALARY_TABLE.index('Report_card_date')], '%d.%m.%y %H:%M')
+        # Если последняя по дате запись не вышла за срок годности, помечаем ее как исключение:
+        if (now - data_of_entity) <= timedelta(days=2):
+            except_entry = [entries[-1]]
+        else:
+            except_entry = []
+
+        # Обновляем записи, устанавливая Available_to_employee в False для всех записей, кроме relevant_entries
+        for entry in entries:
+            if entry not in except_entry:
+                cursor.execute('''
+                    UPDATE salary
+                    SET Available_to_employee = 'False'
+                    WHERE Employee_code = ? AND Report_card_date = ?
+                ''', (employee_code, entry[0]))
+
+    # Фиксируем изменения и закрываем соединение
+    close_connection(connect=connect)
 
 
 def check_the_receipt(employee_code: str) -> bool:
