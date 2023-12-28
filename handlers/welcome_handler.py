@@ -19,7 +19,10 @@ router = Router()
 
 # При получении файла, проверка статуса будет вызываться из хендлера salary.handle_excel_file
 @router.message(StateFilter(None), ~F.document)
-async def restoring_state_from_database(message: Message, state: FSMContext):
+async def restoring_state_from_database(message: Message, state: FSMContext) -> None:
+    """Функция восстанавливает state из БД и вызывает соответствующий обработчик данного state
+    Это необходимый элемент корректной работы при перезапуске бота"""
+
     name_of_current_state = get_user_state_from_db(str(message.chat.id))
     print(f'Юзер {message.chat.id}: restoring_state_from_database. Текущий статус: {name_of_current_state}')
     if not name_of_current_state:
@@ -48,13 +51,15 @@ async def restoring_state_from_database(message: Message, state: FSMContext):
 
 @router.message(Command("start"), StateFilter(None))
 async def start_dialogue(message: Message):
+    """"""
+
     print(f'Юзер {message.chat.id}: start_dialogue')
     await message.answer(reply_markup=ReplyKeyboardRemove(), text='Добрый день!')
 
     record_of_user = (
-        str(message.chat.id),
-        message.chat.username,
-        '',  # state_in_bot
+        str(message.chat.id),  # telegram_id
+        message.chat.username,  # telegram_username
+        'None',  # state_in_bot
         '',  # employee_code
         '',  # secret_employee_code
         '3',  # registration_attempts
@@ -80,21 +85,12 @@ async def start_dialogue(message: Message):
 
 # Фильтр "StateFilter(None)" для того, чтобы после однократного нажатия, кнопка перестала реагировать:
 @router.callback_query(F.data.in_(["Пройти регистрацию"]), StateFilter(None))
-async def start_registration(callback: CallbackQuery, state: FSMContext):
+async def start_registration(callback: CallbackQuery, state: FSMContext) -> None:
+    """Функция выводит сообщение об ожидании ввода от пользователя 'кода сотрудника'
+    и изменяет state на 'waiting_for_employee_code'"""
+
     await callback.answer()
     print(f'Юзер {callback.from_user.id}: нажал на кнопку "Пройти регистрацию"')
-
-    # Проверяем запись юзера. На случай, если в чате сохранилась кнопка "Пройти регистрацию", а юзер был удален из базы.
-    record_of_user = (
-        str(callback.from_user.id),
-        callback.from_user.username,
-        'waiting_for_employee_code',  # state_in_bot
-        '',  # employee_code
-        '',  # secret_employee_code
-        '3',  # registration_attempts
-    )
-    insert_user_to_database(record_of_user)
-    print(f'Юзер {callback.from_user.id}: restoring_state_from_database. Текущий статус: waiting_for_employee_code')
 
     # Устанавливаем пользователю состояние "Ожидание кода сотрудника"
     await state.set_state(Registration.waiting_for_employee_code)
@@ -111,9 +107,11 @@ async def start_registration(callback: CallbackQuery, state: FSMContext):
 
 
 @router.message(Registration.waiting_for_employee_code)
-async def waiting_for_employee_code(message: Message, state: FSMContext):
-    """Функция проверяет полученный "код сотрудника" на возможность его конвертации в "секретный код сотрудника", что
-    является косвенным признаком корректного "кода сотрудника", """
+async def waiting_for_employee_code(message: Message, state: FSMContext) -> None:
+    """Функция проверяет полученный 'код сотрудника' на возможность его конвертации в 'секретный код сотрудника', что
+    является косвенным признаком корректного 'кода сотрудника'
+    При удачно пройденной проверке, функция привязывает 'код сотрудника' к данному telegram_id"""
+
     print(f'Юзер {message.chat.id}: waiting_for_employee_code')
 
     # Пытаемся преобразовать "код сотрудника" в "секретный код сотрудника"
@@ -156,7 +154,8 @@ async def waiting_for_employee_code(message: Message, state: FSMContext):
         # Если полученный от юзера "код сотрудника" уже зарегистрирован на другой telegram_id:
         else:
             await message.answer(text="Введенный 'Код сотрудника' уже зарегистрирован.\n"
-                                      "Если это Ваш код, обратитесь к руководителю")
+                                      "Если это Ваш код, обратитесь к руководителю\n"
+                                      "Если вы ошиблись, повторите ввод")
     # Если полученный от юзера "код сотрудника" не может быть преобразован в "секретный код сотрудника":
     else:
         await message.answer(text="Не могу разобрать Ваш 'Код сотрудника'.\n"
@@ -165,7 +164,10 @@ async def waiting_for_employee_code(message: Message, state: FSMContext):
 
 
 @router.message(Registration.waiting_for_secret_employee_code)
-async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
+async def waiting_for_secret_employee_code(message: Message, state: FSMContext) -> None:
+    """Функция сравнивает полученный от юзера 'секретный код сотрудника' со значением 'секретного кода сотрудника',
+    которое получили зашифровав 'код сотрудника'"""
+
     print(f'Юзер {message.chat.id}: waiting_for_secret_employee_code')
 
     user_secret_employee_code = get_data_from_column(
@@ -173,12 +175,8 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
         base_column_name='telegram_id',
         base_column_value=str(message.chat.id),
         target_column_name='secret_employee_code'
-    )
+    )[0]
     if message.text == user_secret_employee_code:
-        await message.answer(text="Отлично!\n"
-                                  "Регистрация прошла успешно.\n "
-                                  "Если Вы руководитель, отправьте табель в виде файла Excel.\n"
-                                  "Когда Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель")
         await state.set_state(Registration.employee_is_registered)
         update_data_in_column(
             table_name=TABLE_NAME,
@@ -187,9 +185,17 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
             target_column_name='state_in_bot',
             new_value='employee_is_registered'
         )
-        # TODO здесь можно поместить кнопку "запросить квиток"
+        await message.answer(text="Отлично! Регистрация прошла успешно.\n"
+                                  "Если Вы руководитель, отправьте табель в виде файла Excel.\n"
+                                  "Если Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель, "
+                                  "но можно проверить, имеется ли уже сейчас актуальный квиток",
+                             reply_markup=make_inline_row_keyboard(
+                                 ["Проверить наличие квитка"])
+                             )
+        # TODO сделать проверку квитка
 
     else:
+        # Если 'секретный код сотрудника' некорректный, уменьшаем счетчик попыток:
         registration_attempts = get_data_from_column(
             table_name=TABLE_NAME,
             base_column_name='telegram_id',
@@ -218,14 +224,13 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext):
 
         else:
             await message.answer(text=f"'Секретный код сотрудника' не соответствует коду сотрудника.\n"
-                                      f"Осталось попыток: {registration_attempts}",
-                                 reply_markup=make_inline_row_keyboard(
-                                     ["Изменить Код сотрудника"])
-                                 )
+                                      f"Осталось попыток: {registration_attempts}")
 
 
 @router.message(Registration.employee_is_banned)
-async def employee_is_banned(message: Message):
+async def employee_is_banned(message: Message) -> None:
+    """Функция, обрабатывающая юзера, если он забанен"""
+
     print(f'Юзер {message.chat.id}: employee_is_banned')
 
     await message.answer(text="Ничего не могу поделать. Обратитесь к руководителю. "
@@ -233,7 +238,9 @@ async def employee_is_banned(message: Message):
 
 
 @router.message(Registration.employee_is_registered, F.content_type.in_({'text', 'sticker', 'photo'}))
-async def employee_is_registered(message: Message, state: FSMContext):
+async def employee_is_registered(message: Message, state: FSMContext) -> None:
+    """Автоответчик на сообщения зарегистрированного пользователя"""
+
     print(f'Юзер {message.from_user.id}: employee_is_registered')
 
     await state.set_state(Registration.employee_is_registered)
@@ -241,11 +248,28 @@ async def employee_is_registered(message: Message, state: FSMContext):
 
 
 @router.callback_query(Registration.waiting_for_secret_employee_code, F.data.in_(["Изменить Код сотрудника"]))
-async def cancel_registration(callback: CallbackQuery, state: FSMContext):
+async def cancel_registration(callback: CallbackQuery, state: FSMContext) -> None:
+    """Функция возвращает пользователя на шаг ввода 'кода сотрудника', не обнуляя при этом количество попыток
+    ввода 'секретного кода сотрудника'"""
+
     await callback.answer()
     print(f"Юзер {callback.from_user.id}: нажал на кнопку 'Изменить Код сотрудника'")
 
     await state.set_state(Registration.waiting_for_employee_code)
+    update_data_in_column(
+        table_name=TABLE_NAME,
+        base_column_name='telegram_id',
+        base_column_value=str(callback.from_user.id),
+        target_column_name='employee_code',
+        new_value=''
+    )
+    update_data_in_column(
+        table_name=TABLE_NAME,
+        base_column_name='telegram_id',
+        base_column_value=str(callback.from_user.id),
+        target_column_name='secret_employee_code',
+        new_value=''
+    )
     update_data_in_column(
         table_name=TABLE_NAME,
         base_column_name='telegram_id',

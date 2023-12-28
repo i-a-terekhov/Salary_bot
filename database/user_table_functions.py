@@ -16,7 +16,9 @@ def get_user_state_from_db(telegram_id: str) -> str | bool:
         base_column_name='telegram_id',
         base_column_value=telegram_id,
         target_column_name='state_in_bot'
-    )[0]
+    )
+    if len(value) > 0:
+        value = value[0]
     if value != "":
         return value
     else:
@@ -58,9 +60,9 @@ def employee_code_not_registered(employee_code: str) -> bool:
         base_column_name='employee_code',
         base_column_value=employee_code,
         target_column_name='telegram_id'
-    )[0]
+    )
     # Если значение пустое, значит employee_code еще нет в таблице users -> возвращаем True
-    if value == "":
+    if not value:
         return True
     else:
         return False

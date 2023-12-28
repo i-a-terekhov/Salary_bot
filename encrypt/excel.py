@@ -1,12 +1,17 @@
 import os
 
 import openpyxl
+from aiogram import Bot
 from aiogram.types import CallbackQuery, FSInputFile
 from openpyxl.styles import Border, Side, Alignment
 
 from database.general_db_functions import get_data_from_column
 from encrypt.math_operations import check_employee_code
-from handlers.salary import TABLE_NAME, bot
+from hidden.tokenfile import TOKEN_FOUR
+
+
+bot = Bot(TOKEN_FOUR)
+TABLE_NAME = 'salary'
 
 
 async def get_secret_codes_for_employee(callback: CallbackQuery, employee_codes: list | tuple) -> None:
