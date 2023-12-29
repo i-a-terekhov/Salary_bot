@@ -192,9 +192,8 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
                                   "Если Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель, "
                                   "но можно проверить, имеется ли уже сейчас актуальный квиток",
                              reply_markup=make_inline_row_keyboard(
-                                 ["Проверить наличие квитка"])
+                                 ["Получить актуальный квиток"])
                              )
-        # TODO сделать проверку квитка
 
     else:
         # Если 'секретный код сотрудника' некорректный, уменьшаем счетчик попыток:
@@ -229,10 +228,11 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
                                       f"Осталось попыток: {registration_attempts}")
 
 
-@router.callback_query(Registration.employee_is_registered, F.data.in_(["Проверить наличие квитка"]))
+@router.callback_query(Registration.employee_is_registered, F.data.in_(["Получить актуальный квиток"]))
 async def check_the_receipt(callback: CallbackQuery, state: FSMContext) -> None:
     code = get_user_employee_code_from_db(telegram_id=str(callback.message.chat.id))
-    return_the_receipt(employee_code=code)
+    text = return_the_receipt(employee_code=code)
+    await callback.message.answer(text=text)
 
 
 @router.message(Registration.employee_is_banned)

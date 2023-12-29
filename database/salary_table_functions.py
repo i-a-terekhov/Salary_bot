@@ -51,6 +51,34 @@ TRANSLATE_DICT = {
 }
 
 
+base_column = "Код."
+target_column_01 = "Должность"
+target_column_02 = "Ф.И.О."
+target_column_03 = "Итог З/П"  # Оклад
+target_column_04 = "Итог мотивация"  # Премия
+target_column_05 = "Итог З\П+Бонус"  # Всего
+target_column_06 = "Премия(компенсация отпуска)"
+target_column_07 = "Вычеты ОС(форма/прочее)"
+target_column_08 = "Вычеты ОС(Инвентаризация)"
+target_column_09 = 'Вычеты-штрафы'
+target_column_10 = 'Факт часы'
+target_column_11 = 'Кол-во ошибок (примечание)'
+target_column_12 = 'Сумма ошибки'
+target_column_13 = 'Единый коэфф.'
+target_column_14 = 'Дополнительные работы Н/Ч'
+target_column_15 = 'Выдача '  # <-- пробел после слова - как в файле
+target_column_16 = 'Доставки(Подготовка отгрузок)'
+target_column_17 = 'Приемка'
+target_column_18 = 'Размещение'
+target_column_19 = 'Объем М3 кросс.'
+target_column_20 = 'Сборка отгрузок'
+
+target_columns = [base_column, target_column_01, target_column_02, target_column_03, target_column_04, target_column_05,
+                  target_column_06, target_column_07, target_column_08, target_column_09, target_column_10,
+                  target_column_11, target_column_12, target_column_13, target_column_14, target_column_15,
+                  target_column_16, target_column_17, target_column_18, target_column_19, target_column_20]
+
+
 def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: dict) -> bool:
     """Функция принимает два словаря: dict_of_persons с данными по сотрудникам и dict_of_filling с данными по заливке
     и проливает их в БД"""
@@ -134,7 +162,9 @@ def close_irrelevant_entries(employee_code: str) -> bool:
         return False
 
 
-def get_one_record(employee_code: str) -> None:
+def get_one_record(employee_code: str) -> tuple:
+    """Функция извлекает единственную актуальную запись сотрудника и возвращает кортеж"""
+
     connect = open_connection(table_name=TABLE_NAME, name_of_columns=SALARY_TABLE)
     cursor = connect.cursor()
 
@@ -145,16 +175,25 @@ def get_one_record(employee_code: str) -> None:
         WHERE Employee_code = ? AND Available_to_employee = 'True'
     ''', (employee_code,))
     record_of_employee = cursor.fetchone()
-    print(record_of_employee)
+    return record_of_employee
 
 
-def return_the_receipt(employee_code: str) -> None:
-    """Функция возвращает квиток"""
-    print('return_the_receipt')
+def return_the_receipt(employee_code: str) -> str:
+    """Функция возвращает текст: квиток, либо сообщение об отсутствии квитка"""
 
     if close_irrelevant_entries(employee_code=employee_code):
-        print('Найдена актуальная запись:')
-        get_one_record(employee_code=employee_code)
+        tuple_of_record = get_one_record(employee_code=employee_code)
+        text = make_text_of_receipt(tuple_of_record)
     else:
-        # Актуального расчетного листа не найдено
-        pass
+        text = 'Актуального квитка не найдено'
+    return text
+
+
+def make_text_of_receipt(tuple_of_record: tuple) -> str:
+    """Формирует текст квитка из кортежа"""
+
+    text = ''
+    for i in range(len(target_columns)):
+        print(f'{target_columns[i]}: {tuple_of_record[i+5]}')
+        text += f'{target_columns[i]}: {tuple_of_record[i+5]}\n'
+    return text
