@@ -8,6 +8,7 @@ class Registration(StatesGroup):
     waiting_for_secret_employee_code = State()
     employee_is_registered = State()
     employee_is_banned = State()
+    waiting_for_salary_code = State()
     # Выводим первичное приветственное сообщение.
     # Ожидаем любой ввод (зарплатный файл или "секретный код сотрудника" или случайное сообщение)
     # > если файл корректный, заносим данного юзера в БД как босса -> waiting_for_access_summ

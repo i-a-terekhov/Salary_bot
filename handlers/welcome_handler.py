@@ -3,7 +3,8 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
-from database.salary_table_functions import close_irrelevant_entries, return_the_receipt
+from database.salary_table_functions import close_irrelevant_entries, return_the_receipt, get_one_record, \
+    get_salary_password_for_user
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
 from database.general_db_functions import update_data_in_column, get_data_from_column
@@ -192,7 +193,7 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
                                   "Если Вы сотрудник, Вам придет уведомление, когда руководитель вышлет табель, "
                                   "но можно проверить, имеется ли уже сейчас актуальный квиток",
                              reply_markup=make_inline_row_keyboard(
-                                 ["Получить актуальный квиток"])
+                                 ["Запросить квиток"])
                              )
 
     else:
@@ -228,11 +229,39 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
                                       f"Осталось попыток: {registration_attempts}")
 
 
-@router.callback_query(Registration.employee_is_registered, F.data.in_(["Получить актуальный квиток"]))
+@router.callback_query(Registration.employee_is_registered, F.data.in_(["Запросить квиток"]))
 async def check_the_receipt(callback: CallbackQuery, state: FSMContext) -> None:
+    """Функция запускает проверку на наличие актуального квитка, в случае существования такого - запрашивает пароль"""
+
+    await callback.answer()
     code = get_user_employee_code_from_db(telegram_id=str(callback.message.chat.id))
-    text = return_the_receipt(employee_code=code)
-    await callback.message.answer(text=text)
+    record_is_exist = close_irrelevant_entries(employee_code=code)
+    if record_is_exist:
+        # Данный статус не сохраняется в БД как скоротечный
+        await state.set_state(Registration.waiting_for_salary_code)
+        await callback.message.answer(text='Обнаружен актуальный квиток. Введите заливочный пароль')
+    else:
+        await callback.message.answer(text='Квиток не обнаружен')
+
+
+@router.message(Registration.waiting_for_salary_code)
+async def check_salary_password(message: Message, state: FSMContext) -> None:
+    # Сразу меняем статус назад до employee_is_registered. Если пароль верный - статус и так возвращать,
+    # если пароль неверный, к сообщению о неверном пароле будет прикручена кнопка "Запросить квиток", обработчик которой
+    # приведет статус к waiting_for_salary_code
+    await state.set_state(Registration.employee_is_registered)
+
+    code = get_user_employee_code_from_db(telegram_id=str(message.from_user.id))
+    salary_password_from_bd = get_salary_password_for_user(employee_code=code)
+
+    if message.text == salary_password_from_bd:
+        await message.answer(text='Пароль верный!')
+        text = return_the_receipt(employee_code=code)
+        await message.answer(text=text)
+    else:
+        await message.answer(
+            text='Пароль неверный, попробуйте еще раз',
+            reply_markup=make_inline_row_keyboard(["Запросить квиток"]))
 
 
 @router.message(Registration.employee_is_banned)
@@ -252,7 +281,10 @@ async def employee_is_registered(message: Message, state: FSMContext) -> None:
     print(f'Юзер {message.from_user.id}: employee_is_registered')
 
     await state.set_state(Registration.employee_is_registered)
-    await message.answer(text="Регистрация прошла успешно. Когда руководитель вышлет данные, Вам придет уведомление")
+    await message.answer(text="Регистрация прошла успешно. Когда руководитель вышлет данные, Вам придет уведомление,"
+                              "но можно проверить, имеется ли уже сейчас актуальный квиток",
+                         reply_markup=make_inline_row_keyboard(["Запросить квиток"])
+                         )
 
 
 @router.callback_query(Registration.waiting_for_secret_employee_code, F.data.in_(["Изменить Код сотрудника"]))

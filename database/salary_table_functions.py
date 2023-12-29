@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from database.general_db_functions import open_connection, close_connection
+from database.general_db_functions import open_connection, close_connection, v_look_up_many
 
 DATABASE_REG_NAME = 'database/bd.sql'
 TABLE_NAME = 'salary'
@@ -181,11 +181,9 @@ def get_one_record(employee_code: str) -> tuple:
 def return_the_receipt(employee_code: str) -> str:
     """Функция возвращает текст: квиток, либо сообщение об отсутствии квитка"""
 
-    if close_irrelevant_entries(employee_code=employee_code):
-        tuple_of_record = get_one_record(employee_code=employee_code)
-        text = make_text_of_receipt(tuple_of_record)
-    else:
-        text = 'Актуального квитка не найдено'
+    tuple_of_record = get_one_record(employee_code=employee_code)
+    text = make_text_of_receipt(tuple_of_record)
+
     return text
 
 
@@ -194,6 +192,16 @@ def make_text_of_receipt(tuple_of_record: tuple) -> str:
 
     text = ''
     for i in range(len(target_columns)):
-        print(f'{target_columns[i]}: {tuple_of_record[i+5]}')
         text += f'{target_columns[i]}: {tuple_of_record[i+5]}\n'
     return text
+
+
+def get_salary_password_for_user(employee_code: str) -> str:
+    salary_password_from_bd = v_look_up_many(
+        table_name=TABLE_NAME,
+        base_column_names=['Employee_code', 'Available_to_employee'],
+        base_column_values=[employee_code, 'True'],
+        target_column_name='salary_password'
+    )[0]
+    return salary_password_from_bd
+
