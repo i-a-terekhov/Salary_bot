@@ -3,7 +3,7 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 
-from database.salary_table_functions import close_irrelevant_entries
+from database.salary_table_functions import close_irrelevant_entries, return_the_receipt
 from states import Registration
 from keyboards.simple_keyboard import make_inline_row_keyboard
 from database.general_db_functions import update_data_in_column, get_data_from_column
@@ -231,9 +231,8 @@ async def waiting_for_secret_employee_code(message: Message, state: FSMContext) 
 
 @router.callback_query(Registration.employee_is_registered, F.data.in_(["Проверить наличие квитка"]))
 async def check_the_receipt(callback: CallbackQuery, state: FSMContext) -> None:
-    print('Функция check_the_receipt')
-    code = get_user_employee_code_from_db(str(callback.message.chat.id))
-    close_irrelevant_entries(code)
+    code = get_user_employee_code_from_db(telegram_id=str(callback.message.chat.id))
+    return_the_receipt(employee_code=code)
 
 
 @router.message(Registration.employee_is_banned)

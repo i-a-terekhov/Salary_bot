@@ -91,7 +91,7 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
     return successful_insert
 
 
-def close_irrelevant_entries(employee_code) -> bool:
+def close_irrelevant_entries(employee_code: str) -> bool:
     """Функция для данного employee_code закрывает все неактуальные записи,
     оставляя только последнюю, если она не старше двух суток"""
 
@@ -108,12 +108,12 @@ def close_irrelevant_entries(employee_code) -> bool:
     entries = cursor.fetchall()
 
     except_entry_from_irrelevant_entries = []  # Список для одной актуальной записи (исключения из неактуальных)
-    if len(entries) > 1:
+    if len(entries) > 0:
         # Вычисляем даты "сейчас" и "дата записи" для сравнения
         now = datetime.now()
         data_of_entity = datetime.strptime(entries[-1][SALARY_TABLE.index('Report_card_date')], '%d.%m.%y %H:%M')
         # Если последняя по дате запись не вышла за срок годности, помещаем ее в except_entry_from_irrelevant_entries:
-        if (now - data_of_entity) <= timedelta(days=2):
+        if (now - data_of_entity) <= timedelta(days=5):
             except_entry_from_irrelevant_entries = [entries[-1]]
 
         # Обновляем записи, устанавливая Available_to_employee в False для всех записей, кроме except_entry_<...>
@@ -134,12 +134,27 @@ def close_irrelevant_entries(employee_code) -> bool:
         return False
 
 
+def get_one_record(employee_code: str) -> None:
+    connect = open_connection(table_name=TABLE_NAME, name_of_columns=SALARY_TABLE)
+    cursor = connect.cursor()
+
+    # Выбираем единственную доступную запись сотрудника:
+    cursor.execute(f'''
+        SELECT *
+        FROM salary
+        WHERE Employee_code = ? AND Available_to_employee = 'True'
+    ''', (employee_code,))
+    record_of_employee = cursor.fetchone()
+    print(record_of_employee)
+
+
 def return_the_receipt(employee_code: str) -> None:
     """Функция возвращает квиток"""
+    print('return_the_receipt')
 
     if close_irrelevant_entries(employee_code=employee_code):
-        # Квиток существует
-        pass
+        print('Найдена актуальная запись:')
+        get_one_record(employee_code=employee_code)
     else:
         # Актуального расчетного листа не найдено
         pass
