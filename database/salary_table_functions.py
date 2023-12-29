@@ -91,7 +91,7 @@ def insert_dict_of_persons_to_database(dict_of_persons: dict, dict_of_filling: d
     return successful_insert
 
 
-def close_irrelevant_entries(employee_code) -> None:
+def close_irrelevant_entries(employee_code) -> bool:
     """Функция для данного employee_code закрывает все неактуальные записи,
     оставляя только последнюю, если она не старше двух суток"""
 
@@ -107,19 +107,18 @@ def close_irrelevant_entries(employee_code) -> None:
     ''', (employee_code,))
     entries = cursor.fetchall()
 
+    except_entry_from_irrelevant_entries = []  # Список для одной актуальной записи (исключения из неактуальных)
     if len(entries) > 1:
         # Вычисляем даты "сейчас" и "дата записи" для сравнения
         now = datetime.now()
         data_of_entity = datetime.strptime(entries[-1][SALARY_TABLE.index('Report_card_date')], '%d.%m.%y %H:%M')
-        # Если последняя по дате запись не вышла за срок годности, помечаем ее как исключение:
+        # Если последняя по дате запись не вышла за срок годности, помещаем ее в except_entry_from_irrelevant_entries:
         if (now - data_of_entity) <= timedelta(days=2):
-            except_entry = [entries[-1]]
-        else:
-            except_entry = []
+            except_entry_from_irrelevant_entries = [entries[-1]]
 
-        # Обновляем записи, устанавливая Available_to_employee в False для всех записей, кроме relevant_entries
+        # Обновляем записи, устанавливая Available_to_employee в False для всех записей, кроме except_entry_<...>
         for entry in entries:
-            if entry not in except_entry:
+            if entry not in except_entry_from_irrelevant_entries:
                 cursor.execute('''
                     UPDATE salary
                     SET Available_to_employee = 'False'
@@ -129,11 +128,18 @@ def close_irrelevant_entries(employee_code) -> None:
     # Фиксируем изменения и закрываем соединение
     close_connection(connect=connect)
 
+    if except_entry_from_irrelevant_entries:
+        return True
+    else:
+        return False
 
-def check_the_receipt(employee_code: str) -> bool:
-    """Функция проверяет наличие для данного employee_code записи в таблице salary,
-    где бы значение available_to_employee == True"""
 
-    close_irrelevant_entries(employee_code=employee_code)
+def return_the_receipt(employee_code: str) -> None:
+    """Функция возвращает квиток"""
 
-    pass
+    if close_irrelevant_entries(employee_code=employee_code):
+        # Квиток существует
+        pass
+    else:
+        # Актуального расчетного листа не найдено
+        pass
