@@ -85,10 +85,10 @@ async def start_dialogue(message: Message):
         reply_markup=make_inline_row_keyboard(['Пройти регистрацию'])
     )
 
-    # await message.answer(text="Загружаю видео-демонстрацию (требуется 10-15 секунд)")
-    # video_path = "demonstration.mp4"  # Укажите правильный путь к видео
-    # video = FSInputFile(video_path)
-    # await message.answer_document(video)
+    await message.answer(text="Загружаю видео-демонстрацию (требуется 10-15 секунд)")
+    video_path = "demo.mp4"  # Укажите правильный путь к видео
+    video = FSInputFile(video_path)
+    await message.answer_document(video)
 
 
 # Фильтр "StateFilter(None)" для того, чтобы после однократного нажатия, кнопка перестала реагировать:
