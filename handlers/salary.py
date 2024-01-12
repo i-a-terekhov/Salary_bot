@@ -15,7 +15,7 @@ from database.salary_table_functions import insert_dict_of_persons_to_database
 import openpyxl
 
 from keyboards.simple_keyboard import make_inline_many_keys_keyboard, make_inline_rows_keyboard, \
-    make_inline_secret_many_keys_keyboard
+    make_inline_secret_many_keys_keyboard, make_inline_row_keyboard
 from states import Registration
 
 router = Router()
@@ -488,7 +488,10 @@ async def _sending_notifications(list_of_employee_codes: list):
                                                     base_column_value=employee_code,
                                                     target_column_name='telegram_id')
         if employee_telegram_id:
-            await bot.send_message(chat_id=employee_telegram_id[0], text='Вам пришел квиток')
+            await bot.send_message(
+                chat_id=employee_telegram_id[0],
+                text='Вам пришел квиток',
+                reply_markup=make_inline_row_keyboard(["Запросить квиток"]))
 
 
 @router.callback_query(Registration.employee_is_registered, F.data.startswith("Сгенерировать секретные коды"))
