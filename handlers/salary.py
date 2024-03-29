@@ -133,8 +133,6 @@ def forming_small_results_of_table() -> str:
     """
     global dict_of_persons
     text = ''
-    print('Смотрим, что в словаре')
-    print(dict_of_persons)
     for person_no in dict_of_persons:
 
         surname = str(dict_of_persons[person_no]["Ф.И.О."]).split(' ')[0]
