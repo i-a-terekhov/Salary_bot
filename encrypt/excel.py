@@ -7,10 +7,10 @@ from openpyxl.styles import Border, Side, Alignment
 
 from database.general_db_functions import get_data_from_column
 from encrypt.math_operations import check_employee_code
-from hidden.tokenfile import TOKEN_FOUR
+from hidden.tokenfile import TOKEN_FIVE
 
 
-bot = Bot(TOKEN_FOUR)
+bot = Bot(TOKEN_FIVE)
 TABLE_NAME = 'salary'
 
 

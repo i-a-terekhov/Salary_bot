@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 from database.general_db_functions import get_data_from_column, v_look_up_many, update_data_in_column
 from database.user_table_functions import get_user_employee_code_from_db, get_user_state_from_db
 from encrypt.excel import get_secret_codes_for_employee
-from hidden.tokenfile import TOKEN_FOUR
+from hidden.tokenfile import TOKEN_FIVE
 from states import BossHere
 from database.salary_table_functions import insert_dict_of_persons_to_database
 
@@ -19,7 +19,7 @@ from keyboards.simple_keyboard import make_inline_many_keys_keyboard, make_inlin
 from states import Registration
 
 router = Router()
-bot = Bot(TOKEN_FOUR)
+bot = Bot(TOKEN_FIVE)
 TABLE_NAME = 'salary'
 
 # Для поиска нужного листа мотивации ищем на каждом листе в диапазоне А1:С3 значение:
@@ -133,6 +133,8 @@ def forming_small_results_of_table() -> str:
     """
     global dict_of_persons
     text = ''
+    print('Смотрим, что в словаре')
+    print(dict_of_persons)
     for person_no in dict_of_persons:
 
         surname = str(dict_of_persons[person_no]["Ф.И.О."]).split(' ')[0]
@@ -142,6 +144,9 @@ def forming_small_results_of_table() -> str:
 
         summ = dict_of_persons[person_no][target_column_05]
         emp_no = dict_of_persons[person_no][base_column]
+
+        print(summ)
+        print(emp_no)
 
         text += f'{emp_no} {surname}{summ:_} руб.\n'
     return text

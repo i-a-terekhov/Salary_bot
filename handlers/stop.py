@@ -3,7 +3,7 @@ from aiogram.filters import MagicData, CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FOUR
+from hidden.tokenfile import OWNER_CHAT_ID, TOKEN_FIVE
 
 
 # Хэндлеры этого роутера перехватят все сообщения и колбэки,
@@ -17,7 +17,7 @@ boring_router.callback_query.filter(MagicData(F.maintenance_mode.is_(True)))
 # т.е. когда maintenance_mode на диспетчере равен False или не указан вообще
 regular_router = Router()
 
-bot = Bot(TOKEN_FOUR)
+bot = Bot(TOKEN_FIVE)
 
 
 @boring_router.message()

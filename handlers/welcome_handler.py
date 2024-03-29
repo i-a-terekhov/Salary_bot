@@ -11,11 +11,11 @@ from database.general_db_functions import update_data_in_column, get_data_from_c
 from database.user_table_functions import TABLE_NAME, get_user_state_from_db, insert_user_to_database, \
     get_user_employee_code_from_db
 
-from hidden.tokenfile import TOKEN_FOUR
+from hidden.tokenfile import TOKEN_FIVE
 from encrypt.math_operations import check_employee_code
 from database.user_table_functions import employee_code_not_registered
 
-bot = Bot(TOKEN_FOUR)
+bot = Bot(TOKEN_FIVE)
 
 router = Router()
 
@@ -85,10 +85,10 @@ async def start_dialogue(message: Message):
         reply_markup=make_inline_row_keyboard(['Пройти регистрацию'])
     )
 
-    await message.answer(text="Загружаю видео-демонстрацию (требуется 10-15 секунд)")
-    video_path = "demo.mp4"  # Укажите правильный путь к видео
-    video = FSInputFile(video_path)
-    await message.answer_document(video)
+    # await message.answer(text="Загружаю видео-демонстрацию (требуется 10-15 секунд)")
+    # video_path = "demo.mp4"  # Укажите правильный путь к видео
+    # video = FSInputFile(video_path)
+    # await message.answer_document(video)
 
 
 # Фильтр "StateFilter(None)" для того, чтобы после однократного нажатия, кнопка перестала реагировать:

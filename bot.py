@@ -4,14 +4,14 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from hidden.tokenfile import TOKEN_FOUR
+from hidden.tokenfile import TOKEN_FIVE
 from handlers import welcome_handler, stop, salary
 
 from database.general_db_functions import test_connection, display_all_data_from_table
 from database.user_table_functions import TABLE_NAME, REGISTRATION_TABLE
 
 
-bot_unit = Bot(TOKEN_FOUR)
+bot_unit = Bot(TOKEN_FIVE)
 
 if not test_connection(table_name=TABLE_NAME, required_columns=REGISTRATION_TABLE):
     input('Продолжать?')
